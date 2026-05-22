@@ -1,0 +1,32 @@
+node_modules/
+.svelte-kit/
+build/
+dist/
+.env
+.env.*
+!.env.example
+
+*.local
+*.log
+
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite
+.vite/
+
+# AtomCode
+.atomcode/
+.atomcode.md
+
+# Coverage
+coverage/
