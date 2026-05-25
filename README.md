@@ -1,81 +1,98 @@
+<div align="center">
+
 # Tamarix
 
-基于 Matrix 协议的任务管理系统 — **一个任务就是一个 Matrix Room**。
+**Matrix-native task management -- One Task = One Matrix Room**
 
-## 核心理念
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-2-orange?style=flat-square&logo=svelte&logoColor=white)](https://kit.svelte.dev)
+[![Svelte 5](https://img.shields.io/badge/Svelte-5-ff3e00?style=flat-square&logo=svelte&logoColor=white)](https://svelte-5-preview.vercel.app)
+[![Matrix](https://img.shields.io/badge/Matrix-Protocol-000000?style=flat-square&logo=matrix&logoColor=white)](https://matrix.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Bun](https://img.shields.io/badge/Bun-runtime-000000?style=flat-square&logo=bun&logoColor=white)](https://bun.sh)
 
-Tamarix 将 Matrix 协议的 Room/Space 模型映射为任务管理领域概念：
+[English](./README.md) | [中文](./README.zh-CN.md)
 
-| Matrix 概念 | Tamarix 概念 |
-|---|---|
-| Space | 项目 |
-| Room | 任务 |
-| State Event (`com.tamarix.*`) | 任务属性（状态/优先级/标签等） |
-| Timeline Message | 任务评论 |
-| Power Levels | 权限控制 |
+</div>
 
-这意味着 Tamarix 天然具备：
-- **实时协作** — 基于 Matrix 同步协议
-- **联邦通信** — 跨服务器任务协作
-- **端到端加密** — 任务内容隐私保护
-- **开放协议** — 任何 Matrix 客户端可参与
+---
 
-## 技术栈
+Tamarix maps Matrix's decentralized Room/Space model onto task management. Every task becomes a Matrix room, every project a Matrix space. Because data lives on the Matrix federation -- not a proprietary backend -- you get real-time collaboration, cross-server federation, and end-to-end encryption for free.
 
-| 层级 | 技术 |
-|---|---|
-| 框架 | SvelteKit + Svelte 5 (Runes) |
-| 语言 | TypeScript |
-| UI 组件 | [shadcn-svelte](https://www.shadcn-svelte.com/) (zinc base) |
-| 样式 | Tailwind CSS v4 |
-| 图标 | @lucide/svelte |
-| Matrix SDK | matrix-js-sdk |
-| 包管理 | Bun |
-| 状态管理 | Svelte 5 Runes (`$state` / `$derived`) |
+## Features
 
-## 自定义 Matrix State Events
+- **Real-time** -- Built on the Matrix sync protocol; every change is pushed instantly
+- **Federated** -- Users on different homeservers collaborate on the same tasks
+- **End-to-end encrypted** -- Task content is protected by Matrix's E2EE
+- **Open protocol** -- Any Matrix client can participate; no vendor lock-in
 
-所有任务元数据通过 `com.tamarix.*` 命名空间的自定义 State Event 存储：
+## How It Works
 
-| Event Type | 用途 |
-|---|---|
-| `com.tamarix.task_status` | 任务状态 (todo / in_progress / review / done / closed) |
-| `com.tamarix.priority` | 优先级 (critical / high / medium / low) |
-| `com.tamarix.task_type` | 任务类型 (bug / feature / task / improvement / epic) |
-| `com.tamarix.due_date` | 截止日期 |
-| `com.tamarix.estimate` | 估时/故事点 |
-| `com.tamarix.tags` | 标签 |
-| `com.tamarix.ticket_id` | 任务编号 (e.g. TAM-42) |
-| `com.tamarix.assignee` | 指派人 |
-| `com.tamarix.relation` | 任务关联 (blocks / duplicates / subtask_of) |
-| `com.tamarix.task_archived` | 归档标记 |
-
-## 开发
-
-```sh
-# 安装依赖
-bun install
-
-# 启动开发服务器
-bun run dev
-
-# 类型检查
-bun run check
-
-# 生产构建
-bun run build
-bun run preview
+```
+  Matrix Space   <----->   Tamarix Project
+  Matrix Room    <----->   Tamarix Task
+  State Event    <----->   Task Attribute (status / priority / tags ...)
+  Timeline Msg   <----->   Task Comment
+  Power Levels   <----->   Permission Control
 ```
 
-## 项目进度
+<details>
+<summary><strong>Custom State Events</strong> -- the <code>com.tamarix.*</code> namespace</summary>
 
-| 阶段 | 状态 | 核心交付 |
+| Event Type | Purpose |
+|---|---|
+| `com.tamarix.task_status` | Status (todo / in_progress / review / done / closed) |
+| `com.tamarix.priority` | Priority (critical / high / medium / low) |
+| `com.tamarix.task_type` | Type (bug / feature / task / improvement / epic) |
+| `com.tamarix.due_date` | Due date |
+| `com.tamarix.estimate` | Time estimate / Story points |
+| `com.tamarix.tags` | Tags |
+| `com.tamarix.ticket_id` | Ticket ID (e.g. TAM-42) |
+| `com.tamarix.assignee` | Assignee |
+| `com.tamarix.relation` | Task relation (blocks / duplicates / subtask_of) |
+| `com.tamarix.task_archived` | Archive flag |
+
+</details>
+
+## Tech Stack
+
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-2-orange?style=for-the-badge&logo=svelte&logoColor=white)](https://kit.svelte.dev)
+[![Svelte 5](https://img.shields.io/badge/Svelte_5-Runes-ff3e00?style=for-the-badge&logo=svelte&logoColor=white)](https://svelte-5-preview.vercel.app)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![shadcn-svelte](https://img.shields.io/badge/shadcn-svelte-zinc-18181B?style=for-the-badge)](https://shadcn-svelte.com)
+[![matrix-js-sdk](https://img.shields.io/badge/matrix--js--sdk-000000?style=for-the-badge&logo=matrix&logoColor=white)](https://github.com/matrix-org/matrix-js-sdk)
+[![Bun](https://img.shields.io/badge/Bun-runtime-000000?style=for-the-badge&logo=bun&logoColor=white)](https://bun.sh)
+
+## Quick Start
+
+```sh
+# Install dependencies
+bun install
+
+# Start dev server
+bun run dev
+
+# Type checking
+bun run check
+
+# Production build
+bun run build && bun run preview
+```
+
+## Roadmap
+
+| Phase | Status | Highlights |
 |---|---|---|
-| P0 — MVP | ✅ 已完成 | 登录 / 项目列表 / 任务 CRUD / 任务详情 / 评论 |
-| P1 — 看板视图 | 🔧 进行中 (9/17) | 看板拖拽 / Command Palette / 过滤排序 / Data Table |
-| P2 — 智能化 | 📋 计划中 | Application Service / 编号生成 / 工作流 / 搜索索引 |
-| P3 — 企业级 | 📋 计划中 | Chart 报表 / 提醒 Bot / Git Bridge / 自定义字段 |
+| P0 -- MVP | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | Login / Project list / Task CRUD / Detail / Comments |
+| P1 -- Board View | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | Kanban DnD / Command Palette / Filter & Sort / Data Table / Archive / Upload / Theme |
+| P2 -- Intelligence | ![In Progress](https://img.shields.io/badge/status-frontend_done-yellow?style=flat-square) | i18n / Ticket ID / Workflow / Search / Change History / Relations |
+| P3 -- Enterprise | ![Planned](https://img.shields.io/badge/status-planned-lightgrey?style=flat-square) | Charts / Reminder Bot / Git Bridge / Custom Fields |
+
+## Contributing
+
+Issues and pull requests are welcome. Please open an issue first to discuss what you would like to change.
 
 ## License
 
-[MIT](./LICENSE)
+This project is licensed under the [MIT License](./LICENSE).

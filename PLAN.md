@@ -20,7 +20,7 @@
 | Matrix 集成 | ✅ 已完成 — matrix-js-sdk + V3 sync + Space/Room CRUD |
 | 业务代码 | ✅ P0 已完成 — 登录/项目/任务CRUD/评论/Sync事件监听 |
 | P1 进度 | ✅ P1 已完成（17/17）— 看板拖拽 + Data Table + 归档 + 文件上传/附件 + 主题切换 全部实现 |
-| P2 进度 | 🔧 P2 进行中（16/21）— i18n ✅ 完成；前端兜底层 10/10；AS 增强层 0/6 |
+| P2 进度 | ✅ P2 前端兜底层已完成（10/10）；AS 增强层未开始（0/6） |
 | 路由/页面 | 登录页 + Dashboard + 项目任务列表 + 任务详情(含评论) |
 
 ---
@@ -496,5 +496,5 @@ bun x shadcn-svelte@latest add chart form switch toggle
 |---|---|---|
 | P0 - MVP | 3-4 周 | 登录 → 项目列表(Sidebar) → 任务 CRUD(Dialog/Data Table) → 任务详情(Tabs+聊天) |
 | P1 - 看板 | 1-2 周 | ✅ 全部完成：看板拖拽 + Data Table + Command Palette(⌘K) + 归档 + 文件上传/附件 + 主题切换 |
-| P2 - 智能化 | 2-3 周 | i18n 国际化 + 前端兜底（编号/工作流/搜索）+ AS 增强层 + 变更历史 + 任务关联 |
+| P2 - 智能化 | 2-3 周 | ✅ 前端兜底层已完成：i18n 国际化 + 编号/工作流/搜索/关联/历史；AS 增强层待开发 |
 | P3 - 企业级 | 4-6 周 | Chart 报表 + 提醒 Bot + Git Bridge + Formsnap 自定义字段 |
