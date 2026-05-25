@@ -9,6 +9,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { initLocale, t } from "$lib/i18n";
 
   let { children } = $props();
 
@@ -22,6 +23,7 @@
   let isRestoring = $state(true);
 
   onMount(async () => {
+    initLocale();
     // Try to restore previous session
     await auth.restore();
     isRestoring = false;
@@ -50,7 +52,7 @@
 
 {#if isRestoring}
   <div class="flex h-screen items-center justify-center bg-background">
-    <div class="text-muted-foreground">恢复会话中...</div>
+    <div class="text-muted-foreground">{t("restore.restoring")}</div>
   </div>
 {:else if auth.isLoggedIn}
   <AppShell>

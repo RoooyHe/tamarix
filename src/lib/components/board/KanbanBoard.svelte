@@ -2,6 +2,7 @@
   import type { Task, TaskStatus } from "$lib/matrix/types";
   import { TASK_STATUS_ORDER } from "$lib/matrix/types";
   import KanbanColumn from "./KanbanColumn.svelte";
+  import { t } from "$lib/i18n";
 
   interface Props {
     tasks: Task[];
@@ -29,7 +30,7 @@
   });
 </script>
 
-<div class="flex gap-4 overflow-x-auto pb-4" role="region" aria-label="看板">
+<div class="flex gap-4 overflow-x-auto pb-4" role="region" aria-label={t("kanban.label")}>
   {#each TASK_STATUS_ORDER as status}
     <KanbanColumn
       {status}

@@ -18,9 +18,14 @@
   import PrioritySelect from "$lib/components/task/PrioritySelect.svelte";
   import TaskTypeSelect from "$lib/components/task/TaskTypeSelect.svelte";
   import TaskIdBadge from "$lib/components/common/TaskIdBadge.svelte";
-  import { PRIORITY_LABELS, TASK_TYPE_LABELS } from "$lib/matrix/types";
+  import TaskHistory from "$lib/components/task/TaskHistory.svelte";
+  import TaskRelations from "$lib/components/task/TaskRelations.svelte";
+  import AssigneeSelect from "$lib/components/task/AssigneeSelect.svelte";
   import type { TaskStatus, Priority, TaskType } from "$lib/matrix/types";
-  import { Send, Archive, ArchiveRestore, MoreVertical } from "@lucide/svelte";
+  import { Send, Archive, ArchiveRestore, MoreVertical, Paperclip } from "@lucide/svelte";
+  import FileUploadZone from "$lib/components/task/FileUploadZone.svelte";
+  import AttachmentList from "$lib/components/task/AttachmentList.svelte";
+  import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
   let tasks = getTasksContext();
@@ -34,6 +39,8 @@
   let task = $derived(tasks.getTaskById(taskId));
 
   let commentText = $state("");
+  let showUploadZone = $state(false);
+  let activeTab = $state("comments");
 
   onMount(() => {
     if (auth.client && tasks.tasks.length === 0) {
@@ -73,6 +80,18 @@
     tasks.fetchTasksFromRooms(auth.client, projectId);
   }
 
+  async function handleAssigneeChange(userId: string | undefined) {
+    if (!auth.client || !task) return;
+    if (userId) {
+      const { setAssignee } = await import("$lib/matrix/state-events");
+      await setAssignee(auth.client, task.roomId, userId);
+    } else {
+      const { clearAssignee } = await import("$lib/matrix/state-events");
+      await clearAssignee(auth.client, task.roomId);
+    }
+    tasks.fetchTasksFromRooms(auth.client, projectId);
+  }
+
   async function handleSendComment() {
     if (!auth.client || !task || !commentText.trim()) return;
     await auth.client.sendTextMessage(task.roomId, commentText.trim());
@@ -95,6 +114,27 @@
   function formatTime(ts: number): string {
     return new Date(ts).toLocaleString();
   }
+
+  /** Collect all attachments from all comments */
+  let allAttachments = $derived(
+    commentsStore.comments
+      .filter(c => c.attachments && c.attachments.length > 0)
+      .flatMap(c => c.attachments ?? [])
+  );
+
+  /** Handle file upload completion */
+  async function handleUploadComplete(results: Array<{ mxcUrl: string; fileName: string; mimeType: string; size: number }>) {
+    if (!auth.client || !task) return;
+    for (const result of results) {
+      const file = new File([], result.fileName, { type: result.mimeType });
+      await commentsStore.sendFileMessage(auth.client, task.roomId, file, result.mxcUrl);
+    }
+    showUploadZone = false;
+  }
+
+  function handleUploadError(error: string) {
+    console.error("Upload error:", error);
+  }
 </script>
 
 {#if task}
@@ -108,7 +148,7 @@
       {#if task.archived}
         <Badge variant="outline" class="shrink-0 bg-muted/50">
           <Archive class="mr-1 h-3 w-3" />
-          已归档
+          {t("common.archived")}
         </Badge>
       {/if}
       <DropdownMenu>
@@ -121,12 +161,12 @@
           {#if task.archived}
             <DropdownMenuItem onclick={() => handleToggleArchive(false)}>
               <ArchiveRestore class="mr-2 h-4 w-4" />
-              取消归档
+              {t("common.unarchive")}
             </DropdownMenuItem>
           {:else}
             <DropdownMenuItem onclick={() => handleToggleArchive(true)}>
               <Archive class="mr-2 h-4 w-4" />
-              归档
+              {t("common.archive")}
             </DropdownMenuItem>
           {/if}
         </DropdownMenuContent>
@@ -140,43 +180,53 @@
     <!-- Metadata -->
     <div class="flex flex-wrap gap-3">
       <div class="flex items-center gap-2">
-        <span class="text-xs text-muted-foreground">状态</span>
-        <TaskStatusSelect value={task.status} onValueChange={handleStatusChange} />
+        <span class="text-xs text-muted-foreground">{t("task.status")}</span>
+        <TaskStatusSelect value={task.status} currentStatus={task.status} onValueChange={handleStatusChange} />
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-xs text-muted-foreground">优先级</span>
+        <span class="text-xs text-muted-foreground">{t("task.priority")}</span>
         <PrioritySelect value={task.priority ?? "medium"} onValueChange={handlePriorityChange} />
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-xs text-muted-foreground">类型</span>
+        <span class="text-xs text-muted-foreground">{t("task.type")}</span>
         <TaskTypeSelect value={task.type ?? "task"} onValueChange={handleTypeChange} />
       </div>
       {#if task.dueDate}
         <div class="flex items-center gap-2">
-          <span class="text-xs text-muted-foreground">截止日期</span>
+          <span class="text-xs text-muted-foreground">{t("task.due_date")}</span>
           <Badge variant="outline">{task.dueDate}</Badge>
         </div>
       {/if}
-      {#if task.assignee}
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-muted-foreground">负责人</span>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-muted-foreground">{t("task.assignee")}</span>
+        {#if auth.client && projectId}
+          <AssigneeSelect
+            client={auth.client}
+            projectRoomId={projectId}
+            value={task.assignee}
+            onValueChange={handleAssigneeChange}
+          />
+        {:else if task.assignee}
           <Badge variant="outline">{formatSender(task.assignee)}</Badge>
-        </div>
-      {/if}
+        {/if}
+      </div>
     </div>
 
     <!-- Tabs -->
-    <Tabs value="comments">
+    <Tabs bind:value={activeTab}>
       <TabsList>
-        <TabsTrigger value="details">详情</TabsTrigger>
-        <TabsTrigger value="comments">评论 ({commentsStore.comments.length})</TabsTrigger>
+        <TabsTrigger value="details">{t("task.details")}</TabsTrigger>
+        <TabsTrigger value="comments">{t("task.comments")} ({commentsStore.comments.length})</TabsTrigger>
+        <TabsTrigger value="attachments">{t("task.attachments")} ({allAttachments.length})</TabsTrigger>
+        <TabsTrigger value="history">{t("task.history")}</TabsTrigger>
+        <TabsTrigger value="relations">{t("task.relations")}</TabsTrigger>
       </TabsList>
 
       <TabsContent value="details" class="mt-4">
         <div class="space-y-3">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <div class="text-xs text-muted-foreground">创建时间</div>
+              <div class="text-xs text-muted-foreground">{t("task.created_at")}</div>
               <div class="text-sm">{new Date(task.createdAt).toLocaleString()}</div>
             </div>
             <div>
@@ -185,8 +235,8 @@
             </div>
             {#if task.estimate}
               <div>
-                <div class="text-xs text-muted-foreground">估算</div>
-                <div class="text-sm">{task.estimate.points} {task.estimate!.unit === "story_points" ? "故事点" : task.estimate!.unit === "hours" ? "小时" : "天"}</div>
+                <div class="text-xs text-muted-foreground">{t("task.estimate")}</div>
+                <div class="text-sm">{task.estimate.points} {task.estimate!.unit === "story_points" ? t("task.estimate.story_points") : task.estimate!.unit === "hours" ? t("task.estimate.hours") : t("task.estimate.days")}</div>
               </div>
             {/if}
           </div>
@@ -199,27 +249,46 @@
           <div class="flex gap-2">
             <Textarea
               bind:value={commentText}
-              placeholder="输入评论..."
+              placeholder={t("task.comment_placeholder")}
               rows={2}
               class="flex-1"
             />
-            <Button
-              size="icon"
-              onclick={handleSendComment}
-              disabled={!commentText.trim()}
-            >
-              <Send class="h-4 w-4" />
-            </Button>
+            <div class="flex flex-col gap-1">
+              <Button
+                size="icon"
+                onclick={handleSendComment}
+                disabled={!commentText.trim()}
+              >
+                <Send class="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onclick={() => showUploadZone = !showUploadZone}
+                title={t("task.upload_attachment")}
+              >
+                <Paperclip class="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+
+          <!-- Upload zone (toggle) -->
+          {#if showUploadZone && auth.client}
+            <FileUploadZone
+              client={auth.client}
+              onupload={handleUploadComplete}
+              onerror={handleUploadError}
+            />
+          {/if}
 
           <!-- Comment list -->
           {#if commentsStore.isLoading}
             <div class="text-sm text-muted-foreground text-center py-4">
-              加载评论中...
+              {t("task.loading_comments")}
             </div>
           {:else if commentsStore.comments.length === 0}
             <div class="text-sm text-muted-foreground text-center py-4">
-              暂无评论，发送第一条评论吧
+              {t("task.no_comments_hint")}
             </div>
           {:else}
             <div class="space-y-3">
@@ -235,6 +304,11 @@
                     <span class="text-xs text-muted-foreground">{formatTime(comment.timestamp)}</span>
                   </div>
                   <p class="text-sm pl-8">{comment.content}</p>
+                  {#if comment.attachments && comment.attachments.length > 0 && auth.client}
+                    <div class="mt-2 pl-8">
+                      <AttachmentList attachments={comment.attachments} client={auth.client} />
+                    </div>
+                  {/if}
                 </div>
               {/each}
             </div>
@@ -247,10 +321,55 @@
           {/if}
         </div>
       </TabsContent>
+
+      <TabsContent value="attachments" class="mt-4">
+        <div class="space-y-4">
+          {#if auth.client}
+            <div class="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={() => showUploadZone = !showUploadZone}
+              >
+                <Paperclip class="mr-1 h-4 w-4" />
+                {t("task.upload_attachment")}
+              </Button>
+            </div>
+
+            {#if showUploadZone}
+              <FileUploadZone
+                client={auth.client}
+                onupload={handleUploadComplete}
+                onerror={handleUploadError}
+              />
+            {/if}
+          {/if}
+
+          {#if allAttachments.length > 0 && auth.client}
+            <AttachmentList attachments={allAttachments} client={auth.client} />
+          {:else}
+            <div class="text-sm text-muted-foreground text-center py-8">
+              {t("task.no_attachments")}
+            </div>
+          {/if}
+        </div>
+      </TabsContent>
+
+      <TabsContent value="history" class="mt-4">
+        {#if auth.client && task}
+          <TaskHistory client={auth.client} roomId={task.roomId} />
+        {/if}
+      </TabsContent>
+
+      <TabsContent value="relations" class="mt-4">
+        {#if auth.client && task}
+          <TaskRelations client={auth.client} roomId={task.roomId} allTasks={tasks.tasks} />
+        {/if}
+      </TabsContent>
     </Tabs>
   </div>
 {:else}
   <div class="flex h-48 items-center justify-center">
-    <div class="text-muted-foreground">加载任务中...</div>
+    <div class="text-muted-foreground">{t("task.loading")}</div>
   </div>
 {/if}

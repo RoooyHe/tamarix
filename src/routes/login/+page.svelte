@@ -6,6 +6,7 @@
   import { discoverHomeserver, getLoginFlows } from "$lib/matrix/auth";
   import type { LoginFlow, ISSOFlow } from "matrix-js-sdk";
   import { goto } from "$app/navigation";
+  import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
 
@@ -74,10 +75,10 @@
       ssoFlows = flows.filter(isSSOFlow);
 
       if (!supportsPassword && ssoFlows.length === 0) {
-        discoveryError = "服务器不支持任何可用的登录方式";
+        discoveryError = t("login.no_supported_methods");
       }
     } catch (e) {
-      discoveryError = e instanceof Error ? e.message : "无法连接到服务器";
+      discoveryError = e instanceof Error ? e.message : t("login.cannot_connect");
     } finally {
       isDiscovering = false;
       discoveryDone = true;
@@ -113,7 +114,7 @@
         T
       </div>
       <h1 class="text-2xl font-bold text-foreground">Tamarix</h1>
-      <p class="text-sm text-muted-foreground">基于 Matrix 协议的任务管理</p>
+      <p class="text-sm text-muted-foreground">{t("login.subtitle")}</p>
     </div>
 
     {#if !discoveryDone}
@@ -127,7 +128,7 @@
             placeholder="matrix.org"
             required
           />
-          <FieldDescription>Matrix 服务器域名（如 matrix.org）</FieldDescription>
+          <FieldDescription>{t("login.homeserver_hint")}</FieldDescription>
         </Field>
 
         {#if discoveryError}
@@ -137,7 +138,7 @@
         {/if}
 
         <Button type="submit" class="w-full" disabled={isDiscovering}>
-          {isDiscovering ? "连接中..." : "连接"}
+          {isDiscovering ? t("login.connecting") : t("login.connect")}
         </Button>
       </form>
     {:else}
@@ -148,7 +149,7 @@
           <span class="font-medium">{homeserver}</span>
           {#if discoveredBaseUrl && discoveredBaseUrl !== `https://${homeserver}/`}
             <br />
-            <span class="text-xs">服务器地址: {discoveredBaseUrl}</span>
+            <span class="text-xs">{t("login.server_url", { url: discoveredBaseUrl })}</span>
           {/if}
         </div>
 
@@ -156,7 +157,7 @@
           <!-- Password login form -->
           <form onsubmit={handleSubmit} class="space-y-4">
             <Field>
-              <FieldLabel>用户名</FieldLabel>
+              <FieldLabel>{t("login.username")}</FieldLabel>
               <Input
                 bind:value={username}
                 type="text"
@@ -166,11 +167,11 @@
             </Field>
 
             <Field>
-              <FieldLabel>密码</FieldLabel>
+              <FieldLabel>{t("login.password")}</FieldLabel>
               <Input
                 bind:value={password}
                 type="password"
-                placeholder="输入密码"
+                placeholder={t("login.password_placeholder")}
                 required
               />
             </Field>
@@ -182,7 +183,7 @@
             {/if}
 
             <Button type="submit" class="w-full" disabled={auth.isLoading}>
-              {auth.isLoading ? "登录中..." : "登录"}
+               {auth.isLoading ? t("login.logging_in") : t("login.login")}
             </Button>
           </form>
         {/if}
@@ -192,7 +193,7 @@
           {#if supportsPassword}
             <div class="relative flex items-center py-2">
               <div class="flex-grow border-t border-border"></div>
-              <span class="mx-3 text-xs text-muted-foreground">或</span>
+               <span class="mx-3 text-xs text-muted-foreground">{t("login.or")}</span>
               <div class="flex-grow border-t border-border"></div>
             </div>
           {/if}
@@ -213,7 +214,7 @@
                     window.location.href = `${base}/_matrix/client/v3/auth/${encodeURIComponent(flowType)}/redirect?idp=${encodeURIComponent(idpId)}&redirectUrl=${redirectUrl}`;
                   }}
                 >
-                  通过 {provider.name} 登录
+                   {t("login.login_via", { provider: provider.name })}
                 </Button>
               {/each}
             {:else}
@@ -223,7 +224,7 @@
                 class="w-full"
                 onclick={() => handleSSOLogin(flow)}
               >
-                通过 SSO 登录
+                 {t("login.login_via_sso")}
               </Button>
             {/if}
           {/each}
@@ -231,19 +232,19 @@
 
         {#if !supportsPassword && ssoFlows.length === 0}
           <div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            服务器不支持任何可用的登录方式
+             {t("login.no_supported_methods")}
           </div>
         {/if}
 
         <!-- Back button -->
         <Button variant="ghost" class="w-full text-sm" onclick={resetDiscovery}>
-          更改服务器
+           {t("login.change_server")}
         </Button>
       </div>
     {/if}
 
     <p class="text-center text-xs text-muted-foreground">
-      登录即表示您同意使用 Matrix 协议进行数据通信
+     {t("login.agreement")}
     </p>
   </div>
 </div>

@@ -6,7 +6,7 @@
     SelectTrigger
   } from "$lib/components/ui/select";
   import type { TaskType } from "$lib/matrix/types";
-  import { TASK_TYPE_LABELS } from "$lib/matrix/types";
+  import { getTypeLabel } from "$lib/matrix/types";
   import { Bug, Sparkles, ListTodo, Wrench, Target } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
@@ -43,7 +43,7 @@
   <SelectTrigger class="w-[140px]">
     <span class="inline-flex items-center gap-1.5">
       <currentIcon class="h-4 w-4"></currentIcon>
-      {TASK_TYPE_LABELS[value]}
+      {getTypeLabel(value)}
     </span>
   </SelectTrigger>
   <SelectContent>
@@ -52,7 +52,7 @@
         {@const Ic = typeIconMap[taskType]}
         <span class="inline-flex items-center gap-1.5">
           <Ic class="h-4 w-4" />
-          {TASK_TYPE_LABELS[taskType]}
+          {getTypeLabel(taskType)}
         </span>
       </SelectItem>
     {/each}

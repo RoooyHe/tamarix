@@ -13,6 +13,7 @@
     CommandList,
     CommandSeparator
   } from "$lib/components/ui/command";
+  import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
   let projects = getProjectsContext();
@@ -55,12 +56,12 @@
   }
 </script>
 
-<CommandDialog bind:open title="搜索" description="搜索任务、项目...">
-  <CommandInput placeholder="搜索任务、项目..." />
+<CommandDialog bind:open title={t("search.title")} description={t("search.placeholder")}>
+  <CommandInput placeholder={t("search.placeholder")} />
   <CommandList>
-    <CommandEmpty>未找到结果</CommandEmpty>
+    <CommandEmpty>{t("common.no_results")}</CommandEmpty>
 
-    <CommandGroup heading="任务">
+    <CommandGroup heading={t("search.tasks")}>
       {#each tasks.tasks as task (task.roomId)}
         <CommandItem
           value={`${task.title} ${task.ticketId ?? ""}`}
@@ -76,7 +77,7 @@
 
     <CommandSeparator />
 
-    <CommandGroup heading="项目">
+    <CommandGroup heading={t("search.projects")}>
       {#each projects.projects as project (project.roomId)}
         <CommandItem
           value={project.name}

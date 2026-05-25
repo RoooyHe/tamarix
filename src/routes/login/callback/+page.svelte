@@ -3,6 +3,7 @@
   import { getAuthContext } from "$lib/stores/auth.svelte";
   import { loginWithToken } from "$lib/matrix/auth";
   import { onMount } from "svelte";
+  import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
   let error: string | null = $state(null);
@@ -13,7 +14,7 @@
     const loginToken = params.get("loginToken");
 
     if (!loginToken) {
-      error = "无效的登录回调：缺少 loginToken 参数";
+      error = t("login.invalid_callback");
       isProcessing = false;
       return;
     }
@@ -21,7 +22,7 @@
     // Retrieve the stored homeserver URL from the discovery step
     const baseUrl = sessionStorage.getItem("tamarix.sso_base_url");
     if (!baseUrl) {
-      error = "会话已过期，请重新登录";
+      error = t("login.session_expired");
       isProcessing = false;
       return;
     }
@@ -30,7 +31,7 @@
       await loginWithToken(baseUrl, loginToken);
       goto("/dashboard", { replaceState: true });
     } catch (e) {
-      error = e instanceof Error ? e.message : "SSO 登录失败";
+      error = e instanceof Error ? e.message : t("login.sso_failed");
       isProcessing = false;
     }
   });
@@ -44,15 +45,15 @@
 
     {#if isProcessing}
       <div class="space-y-2">
-        <h2 class="text-lg font-semibold text-foreground">正在完成登录...</h2>
-        <p class="text-sm text-muted-foreground">请稍候，正在验证您的身份</p>
+        <h2 class="text-lg font-semibold text-foreground">{t("login.completing")}</h2>
+        <p class="text-sm text-muted-foreground">{t("login.verifying")}</p>
       </div>
     {:else if error}
       <div class="space-y-4">
         <div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
-        <a href="/login" class="text-sm text-primary underline">返回登录页面</a>
+        <a href="/login" class="text-sm text-primary underline">{t("login.back_to_login")}</a>
       </div>
     {/if}
   </div>

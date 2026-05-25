@@ -3,7 +3,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Avatar, AvatarFallback } from "$lib/components/ui/avatar";
   import type { Task } from "$lib/matrix/types";
-  import { TASK_STATUS_LABELS, PRIORITY_LABELS, TASK_TYPE_LABELS } from "$lib/matrix/types";
+  import { getPriorityLabel } from "$lib/matrix/types";
   import { Bug, Sparkles, ListTodo, Wrench, Target, Calendar, Zap } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
@@ -73,6 +73,9 @@
       {@const Icon = typeIcon[task.type]}
       <Icon class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
     {/if}
+    {#if task.ticketId}
+      <span class="font-mono text-[10px] text-muted-foreground">{task.ticketId}</span>
+    {/if}
     <span class="text-sm font-medium leading-tight text-foreground line-clamp-2">
       {task.title}
     </span>
@@ -85,7 +88,7 @@
         variant="outline"
         class="text-[10px] {priorityColorClass[task.priority] ?? ''}"
       >
-        {PRIORITY_LABELS[task.priority]}
+        {getPriorityLabel(task.priority)}
       </Badge>
     {/if}
     <div class="flex-1"></div>

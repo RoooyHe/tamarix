@@ -15,11 +15,14 @@
   import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "$lib/components/ui/dropdown-menu";
-  import { Bug, Sparkles, ListTodo, Wrench, Target, Filter, ArrowUpDown, LayoutGrid, List, Archive, MoreHorizontal, ArchiveRestore } from "@lucide/svelte";
+  import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table";
+  import { Bug, Sparkles, ListTodo, Wrench, Target, Filter, ArrowUpDown, ChevronUp, ChevronDown, LayoutGrid, List, Archive, MoreHorizontal, ArchiveRestore, ChevronLeft, ChevronRight } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
   import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
-  import { TASK_STATUS_LABELS, PRIORITY_LABELS, TASK_TYPE_LABELS, TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/types";
+  import { getStatusLabel, getPriorityLabel, getTypeLabel, TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/types";
+  import { t } from "$lib/i18n";
+  import { searchTasks } from "$lib/matrix/search";
 
   type IconComponent = Component<LucideProps>;
 
@@ -37,6 +40,10 @@
   type SortKey = "ticketId" | "title" | "status" | "priority" | "type";
   let sortKey = $state<SortKey>("status");
   let sortDir = $state<"asc" | "desc">("asc");
+
+  // Pagination state
+  let pageSize = $state(20);
+  let currentPage = $state(1);
 
   // Filter state
   let searchQuery = $state("");
@@ -58,13 +65,9 @@
   let filteredTasks = $derived.by(() => {
     let result = projectTasks;
 
-    // Search filter
+    // Search filter (supports structured syntax: status:done priority:high keyword)
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(t =>
-        t.title.toLowerCase().includes(q) ||
-        (t.ticketId ?? "").toLowerCase().includes(q)
-      );
+      result = searchTasks(result, searchQuery);
     }
 
     // Priority filter
@@ -133,6 +136,16 @@
     return arr;
   });
 
+  // Paginated tasks (for list view)
+  let totalPages = $derived(Math.max(1, Math.ceil(sortedTasks.length / pageSize)));
+  let paginatedTasks = $derived(sortedTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize));
+
+  // Reset page when filters change
+  $effect(() => {
+    searchQuery; filterPriorities; filterTypes; filterAssignees; filterTags; showArchived;
+    currentPage = 1;
+  });
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       sortDir = sortDir === "asc" ? "desc" : "asc";
@@ -147,14 +160,15 @@
     tasks.updateTaskStatus(auth.client, taskId, targetStatus, projectId);
   }
 
-  async function handleCreateTask(data: { name: string; topic?: string; status: TaskStatus; priority: Priority; type: TaskType }) {
+  async function handleCreateTask(data: { name: string; topic?: string; status: TaskStatus; priority: Priority; type: TaskType; assignee?: string }) {
     if (!auth.client) return;
     await tasks.createTask(auth.client, projectId, {
       name: data.name,
       topic: data.topic,
       status: data.status,
       priority: data.priority,
-      type: data.type
+      type: data.type,
+      assignee: data.assignee
     });
   }
 
@@ -268,12 +282,12 @@
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold text-foreground">{project?.name ?? "项目"}</h1>
+      <h1 class="text-2xl font-bold text-foreground">{project?.name ?? t("breadcrumb.projects")}</h1>
       {#if project?.description}
         <p class="text-sm text-muted-foreground">{project.description}</p>
       {/if}
     </div>
-    <TaskCreateDialog onSubmit={handleCreateTask} />
+    <TaskCreateDialog onSubmit={handleCreateTask} client={auth.client ?? undefined} projectRoomId={projectId} />
   </div>
 
   <!-- Toolbar: view tabs + search + filter -->
@@ -282,11 +296,11 @@
       <TabsList>
         <TabsTrigger value="list">
           <List class="mr-1 h-4 w-4" />
-          列表
+          {t("list.view")}
         </TabsTrigger>
         <TabsTrigger value="board">
           <LayoutGrid class="mr-1 h-4 w-4" />
-          看板
+          {t("list.board")}
         </TabsTrigger>
       </TabsList>
     </Tabs>
@@ -296,7 +310,7 @@
     <!-- Search -->
     <Input
       type="search"
-      placeholder="搜索任务..."
+      placeholder={t("search.search_tasks")}
       bind:value={searchQuery}
       class="w-56"
     />
@@ -306,7 +320,7 @@
       <PopoverTrigger>
         <Button variant="outline" size="sm" class={hasActiveFilters ? "border-primary" : ""}>
           <Filter class="mr-1 h-4 w-4" />
-          过滤
+          {t("common.filter")}
           {#if hasActiveFilters}
             <Badge variant="secondary" class="ml-1 h-5 px-1 text-[10px]">
               {filterPriorities.size + filterTypes.size + filterAssignees.size + filterTags.size}
@@ -317,7 +331,7 @@
       <PopoverContent class="w-64" align="end">
         <div class="space-y-4">
           <div>
-            <h4 class="mb-2 text-sm font-medium">优先级</h4>
+            <h4 class="mb-2 text-sm font-medium">{t("task.priority")}</h4>
             <div class="space-y-2">
               {#each PRIORITY_ORDER as p}
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -326,7 +340,7 @@
                     onCheckedChange={() => togglePriorityFilter(p)}
                   />
                   <Badge variant="outline" class={priorityColorClass[p] ?? ""}>
-                    {PRIORITY_LABELS[p]}
+                    {getPriorityLabel(p)}
                   </Badge>
                 </label>
               {/each}
@@ -334,7 +348,7 @@
           </div>
 
           <div>
-            <h4 class="mb-2 text-sm font-medium">类型</h4>
+            <h4 class="mb-2 text-sm font-medium">{t("task.type")}</h4>
             <div class="space-y-2">
               {#each (["bug", "feature", "task", "improvement", "epic"] as TaskType[]) as t}
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -342,7 +356,7 @@
                     checked={filterTypes.has(t)}
                     onCheckedChange={() => toggleTypeFilter(t)}
                   />
-                  {TASK_TYPE_LABELS[t]}
+                  {getTypeLabel(t)}
                 </label>
               {/each}
             </div>
@@ -350,7 +364,7 @@
 
           {#if availableAssignees.length > 0}
             <div>
-              <h4 class="mb-2 text-sm font-medium">指派人</h4>
+              <h4 class="mb-2 text-sm font-medium">{t("task.assignee")}</h4>
               <div class="space-y-2 max-h-32 overflow-y-auto">
                 {#each availableAssignees as a}
                   <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -367,7 +381,7 @@
 
           {#if availableTags.length > 0}
             <div>
-              <h4 class="mb-2 text-sm font-medium">标签</h4>
+              <h4 class="mb-2 text-sm font-medium">{t("task.tags")}</h4>
               <div class="flex flex-wrap gap-2">
                 {#each availableTags as tag}
                   <label class="flex items-center gap-1.5 cursor-pointer">
@@ -388,13 +402,13 @@
                 checked={showArchived}
                 onCheckedChange={() => showArchived = !showArchived}
               />
-              <span class="text-sm">显示已归档</span>
+              <span class="text-sm">{t("list.show_archived")}</span>
             </label>
           </div>
 
           {#if hasActiveFilters}
             <Button variant="ghost" size="sm" class="w-full" onclick={clearFilters}>
-              清除过滤
+              {t("common.clear_filter")}
             </Button>
           {/if}
         </div>
@@ -411,8 +425,8 @@
     </div>
   {:else if projectTasks.length === 0}
     <div class="rounded-lg border border-border bg-card p-12 text-center">
-      <p class="text-muted-foreground">暂无任务</p>
-      <p class="mt-1 text-sm text-muted-foreground">点击「新建任务」创建第一个任务</p>
+      <p class="text-muted-foreground">{t("task.no_tasks")}</p>
+      <p class="mt-1 text-sm text-muted-foreground">{t("task.no_tasks_hint")}</p>
     </div>
   {:else if currentView === "board"}
     <!-- Kanban view -->
@@ -423,123 +437,185 @@
     />
   {:else}
     <!-- Data Table view -->
-    <div class="rounded-lg border border-border overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-border bg-muted/50">
-            <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-              <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("ticketId")}>
-                编号
-                <ArrowUpDown class="h-3 w-3" />
-              </button>
-            </th>
-            <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-              <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("title")}>
-                标题
-                <ArrowUpDown class="h-3 w-3" />
-              </button>
-            </th>
-            <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-              <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("status")}>
-                状态
-                <ArrowUpDown class="h-3 w-3" />
-              </button>
-            </th>
-            <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-              <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("priority")}>
-                优先级
-                <ArrowUpDown class="h-3 w-3" />
-              </button>
-            </th>
-            <th class="px-3 py-2 text-left font-medium text-muted-foreground">
-              <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("type")}>
-                类型
-                <ArrowUpDown class="h-3 w-3" />
-              </button>
-            </th>
-            <th class="px-3 py-2 text-left font-medium text-muted-foreground">指派人</th>
-            <th class="px-3 py-2 text-left font-medium text-muted-foreground">归档</th>
-            <th class="px-3 py-2 w-10"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each sortedTasks as task (task.roomId)}
-            <tr
-              class="border-b border-border transition-colors hover:bg-accent/50 {task.archived ? 'opacity-60' : ''}"
-              onclick={() => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(task.roomId)}`)}
-              role="button"
-              tabindex={0}
-            >
-              <td class="px-3 py-2">
-                {#if task.ticketId}
-                  <span class="font-mono text-xs text-muted-foreground">{task.ticketId}</span>
-                {/if}
-              </td>
-              <td class="px-3 py-2">
-                <div class="flex items-center gap-1.5">
-                  {#if task.type && typeIcon[task.type]}
-                    {@const Icon = typeIcon[task.type]}
-                    <Icon class="h-4 w-4 shrink-0 text-muted-foreground" />
+    <div class="space-y-3">
+      <div class="rounded-lg border border-border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow class="bg-muted/50 hover:bg-muted/50">
+              <TableHead class="px-3 py-2">
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("ticketId")}>
+                  {t("list.ticket_id")}
+                  {#if sortKey === "ticketId"}
+                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {:else}
+                    <ArrowUpDown class="h-3 w-3 opacity-40" />
                   {/if}
-                  <span class="font-medium text-foreground">{task.title}</span>
-                </div>
-              </td>
-              <td class="px-3 py-2">
-                <Badge variant={statusVariant[task.status] ?? "outline"} class="text-[10px]">
-                  {TASK_STATUS_LABELS[task.status]}
-                </Badge>
-              </td>
-              <td class="px-3 py-2">
-                {#if task.priority}
-                  <Badge variant="outline" class="text-[10px] {priorityColorClass[task.priority] ?? ''}">
-                    {PRIORITY_LABELS[task.priority]}
-                  </Badge>
-                {/if}
-              </td>
-              <td class="px-3 py-2">
-                {#if task.type}
-                  <span class="text-xs text-muted-foreground">{TASK_TYPE_LABELS[task.type]}</span>
-                {/if}
-              </td>
-              <td class="px-3 py-2">
-                {#if task.assignee}
-                  <span class="text-xs text-muted-foreground">{formatSender(task.assignee)}</span>
-                {/if}
-              </td>
-              <td class="px-3 py-2">
-                {#if task.archived}
-                  <Badge variant="outline" class="text-[10px] bg-muted/50">
-                    <Archive class="mr-0.5 h-3 w-3" />
-                    已归档
-                  </Badge>
-                {/if}
-              </td>
-              <td class="px-3 py-2" onclick={(e) => e.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger>
-                    <button class="p-1 rounded hover:bg-accent" onclick={(e) => e.stopPropagation()}>
-                      <MoreHorizontal class="h-4 w-4 text-muted-foreground" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {#if task.archived}
-                      <DropdownMenuItem onclick={() => toggleArchive(task, false)}>
-                        <ArchiveRestore class="mr-2 h-4 w-4" />
-                        取消归档
-                      </DropdownMenuItem>
-                    {:else}
-                      <DropdownMenuItem onclick={() => toggleArchive(task, true)}>
-                        <Archive class="mr-2 h-4 w-4" />
-                        归档
-                      </DropdownMenuItem>
+                </button>
+              </TableHead>
+              <TableHead class="px-3 py-2">
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("title")}>
+                  {t("list.title")}
+                  {#if sortKey === "title"}
+                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {:else}
+                    <ArrowUpDown class="h-3 w-3 opacity-40" />
+                  {/if}
+                </button>
+              </TableHead>
+              <TableHead class="px-3 py-2">
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("status")}>
+                  {t("list.status")}
+                  {#if sortKey === "status"}
+                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {:else}
+                    <ArrowUpDown class="h-3 w-3 opacity-40" />
+                  {/if}
+                </button>
+              </TableHead>
+              <TableHead class="px-3 py-2">
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("priority")}>
+                  {t("list.priority")}
+                  {#if sortKey === "priority"}
+                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {:else}
+                    <ArrowUpDown class="h-3 w-3 opacity-40" />
+                  {/if}
+                </button>
+              </TableHead>
+              <TableHead class="px-3 py-2">
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("type")}>
+                  {t("list.type")}
+                  {#if sortKey === "type"}
+                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {:else}
+                    <ArrowUpDown class="h-3 w-3 opacity-40" />
+                  {/if}
+                </button>
+              </TableHead>
+              <TableHead class="px-3 py-2">{t("list.assignee")}</TableHead>
+              <TableHead class="px-3 py-2">{t("list.archive")}</TableHead>
+              <TableHead class="px-3 py-2 w-10"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {#each paginatedTasks as task (task.roomId)}
+              <TableRow
+                class="cursor-pointer {task.archived ? 'opacity-60' : ''}"
+                onclick={() => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(task.roomId)}`)}
+                role="button"
+                tabindex={0}
+              >
+                <TableCell class="px-3 py-2">
+                  {#if task.ticketId}
+                    <span class="font-mono text-xs text-muted-foreground">{task.ticketId}</span>
+                  {/if}
+                </TableCell>
+                <TableCell class="px-3 py-2">
+                  <div class="flex items-center gap-1.5">
+                    {#if task.type && typeIcon[task.type]}
+                      {@const Icon = typeIcon[task.type]}
+                      <Icon class="h-4 w-4 shrink-0 text-muted-foreground" />
                     {/if}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+                    <span class="font-medium text-foreground">{task.title}</span>
+                  </div>
+                </TableCell>
+                <TableCell class="px-3 py-2">
+                  <Badge variant={statusVariant[task.status] ?? "outline"} class="text-[10px]">
+                    {getStatusLabel(task.status)}
+                  </Badge>
+                </TableCell>
+                <TableCell class="px-3 py-2">
+                  {#if task.priority}
+                    <Badge variant="outline" class="text-[10px] {priorityColorClass[task.priority] ?? ''}">
+                      {getPriorityLabel(task.priority)}
+                    </Badge>
+                  {/if}
+                </TableCell>
+                <TableCell class="px-3 py-2">
+                  {#if task.type}
+                    <span class="text-xs text-muted-foreground">{getTypeLabel(task.type)}</span>
+                  {/if}
+                </TableCell>
+                <TableCell class="px-3 py-2">
+                  {#if task.assignee}
+                    <span class="text-xs text-muted-foreground">{formatSender(task.assignee)}</span>
+                  {/if}
+                </TableCell>
+                <TableCell class="px-3 py-2">
+                  {#if task.archived}
+                    <Badge variant="outline" class="text-[10px] bg-muted/50">
+                      <Archive class="mr-0.5 h-3 w-3" />
+                      {t("common.archived")}
+                    </Badge>
+                  {/if}
+                </TableCell>
+                <TableCell class="px-3 py-2" onclick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger>
+                      <button class="p-1 rounded hover:bg-accent" onclick={(e) => e.stopPropagation()}>
+                        <MoreHorizontal class="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {#if task.archived}
+                        <DropdownMenuItem onclick={() => toggleArchive(task, false)}>
+                          <ArchiveRestore class="mr-2 h-4 w-4" />
+                           {t("common.unarchive")}
+                        </DropdownMenuItem>
+                      {:else}
+                        <DropdownMenuItem onclick={() => toggleArchive(task, true)}>
+                          <Archive class="mr-2 h-4 w-4" />
+                           {t("common.archive")}
+                        </DropdownMenuItem>
+                      {/if}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            {/each}
+          </TableBody>
+        </Table>
+      </div>
+
+      <!-- Pagination -->
+      {#if sortedTasks.length > 0}
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2 text-sm text-muted-foreground">
+             <span>{t("pagination.per_page")}</span>
+            <select
+              class="rounded border border-border bg-background px-2 py-1 text-sm"
+              bind:value={pageSize}
+              onchange={() => { currentPage = 1; }}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+             <span>{t("pagination.total", { n: sortedTasks.length })}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage <= 1}
+              onclick={() => currentPage--}
+            >
+              <ChevronLeft class="h-4 w-4" />
+            </Button>
+            <span class="text-sm text-muted-foreground">
+              {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage >= totalPages}
+              onclick={() => currentPage++}
+            >
+              <ChevronRight class="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 </div>

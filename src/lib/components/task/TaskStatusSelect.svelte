@@ -6,7 +6,8 @@
     SelectTrigger
   } from "$lib/components/ui/select";
   import type { TaskStatus } from "$lib/matrix/types";
-  import { TASK_STATUS_LABELS, TASK_STATUS_ORDER } from "$lib/matrix/types";
+  import { getStatusLabel, TASK_STATUS_ORDER } from "$lib/matrix/types";
+  import { getAllowedNextStatuses } from "$lib/matrix/workflow";
   import { Circle, LoaderCircle, Eye, CircleCheck, CircleOff } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
@@ -17,9 +18,11 @@
     value?: TaskStatus;
     onValueChange?: (value: TaskStatus) => void;
     disabled?: boolean;
+    /** Current status of the task (for workflow-aware filtering). If not provided, all options are shown. */
+    currentStatus?: TaskStatus;
   }
 
-  let { value = $bindable<TaskStatus>("todo"), onValueChange, disabled = false }: Props = $props();
+  let { value = $bindable<TaskStatus>("todo"), onValueChange, disabled = false, currentStatus }: Props = $props();
 
   const statusColorMap: Record<TaskStatus, string> = {
     todo: "bg-muted-foreground/20 text-muted-foreground",
@@ -38,6 +41,14 @@
   };
 
   let currentIcon = $derived(statusIconMap[value]);
+
+  /** If currentStatus is provided, only show allowed transitions + current status */
+  let visibleStatuses = $derived.by(() => {
+    if (!currentStatus) return TASK_STATUS_ORDER;
+    const allowed = getAllowedNextStatuses(currentStatus);
+    // Always include the current status itself
+    return TASK_STATUS_ORDER.filter(s => s === currentStatus || allowed.includes(s));
+  });
 </script>
 
 <Select
@@ -49,16 +60,16 @@
   <SelectTrigger class="w-[140px]">
     <span class={statusColorMap[value] + " inline-flex items-center gap-1.5"}>
       <currentIcon class="h-3.5 w-3.5"></currentIcon>
-      {TASK_STATUS_LABELS[value]}
+      {getStatusLabel(value)}
     </span>
   </SelectTrigger>
   <SelectContent>
-    {#each TASK_STATUS_ORDER as status}
+    {#each visibleStatuses as status}
       <SelectItem value={status}>
         {@const Ic = statusIconMap[status]}
         <span class={statusColorMap[status] + " inline-flex items-center gap-1.5"}>
           <Ic class="h-3.5 w-3.5" />
-          {TASK_STATUS_LABELS[status]}
+          {getStatusLabel(status)}
         </span>
       </SelectItem>
     {/each}

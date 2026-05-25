@@ -15,8 +15,11 @@
   import TaskStatusSelect from "./TaskStatusSelect.svelte";
   import PrioritySelect from "./PrioritySelect.svelte";
   import TaskTypeSelect from "./TaskTypeSelect.svelte";
+  import AssigneeSelect from "./AssigneeSelect.svelte";
+  import type { MatrixClient } from "matrix-js-sdk";
   import type { TaskStatus, Priority, TaskType } from "$lib/matrix/types";
   import { Plus } from "@lucide/svelte";
+  import { t } from "$lib/i18n";
 
   interface Props {
     open?: boolean;
@@ -27,16 +30,20 @@
       status: TaskStatus;
       priority: Priority;
       type: TaskType;
+      assignee?: string;
     }) => Promise<void>;
+    client?: MatrixClient;
+    projectRoomId?: string;
   }
 
-  let { open = $bindable(false), onOpenChange, onSubmit }: Props = $props();
+  let { open = $bindable(false), onOpenChange, onSubmit, client, projectRoomId }: Props = $props();
 
   let name = $state("");
   let topic = $state("");
   let status: TaskStatus = $state("todo");
   let priority: Priority = $state("medium");
   let type: TaskType = $state("task");
+  let assignee: string | undefined = $state(undefined);
   let isSubmitting = $state(false);
 
   async function handleSubmit(e: SubmitEvent) {
@@ -50,7 +57,8 @@
         topic: topic.trim() || undefined,
         status,
         priority,
-        type
+        type,
+        assignee
       });
       // Reset form
       name = "";
@@ -58,6 +66,7 @@
       status = "todo";
       priority = "medium";
       type = "task";
+      assignee = undefined;
       open = false;
     } finally {
       isSubmitting = false;
@@ -74,48 +83,59 @@
   <DialogTrigger>
     <Button size="sm" class="gap-1">
       <Plus class="h-4 w-4" />
-      新建任务
+      {t("task.create")}
     </Button>
   </DialogTrigger>
   <DialogContent class="sm:max-w-[480px]">
     <DialogHeader>
-      <DialogTitle>新建任务</DialogTitle>
-      <DialogDescription>创建一个新的 Matrix Room 作为任务</DialogDescription>
+      <DialogTitle>{t("task.create")}</DialogTitle>
+      <DialogDescription>{t("task.create_desc")}</DialogDescription>
     </DialogHeader>
     <form onsubmit={handleSubmit} class="space-y-4">
       <Field>
-        <FieldLabel>任务标题</FieldLabel>
-        <Input bind:value={name} placeholder="输入任务标题..." required />
+        <FieldLabel>{t("task.title")}</FieldLabel>
+        <Input bind:value={name} placeholder={t("task.title_placeholder")} required />
       </Field>
 
       <Field>
-        <FieldLabel>描述</FieldLabel>
-        <Textarea bind:value={topic} placeholder="输入任务描述..." rows={3} />
+        <FieldLabel>{t("task.description")}</FieldLabel>
+        <Textarea bind:value={topic} placeholder={t("task.description_placeholder")} rows={3} />
       </Field>
 
       <div class="grid grid-cols-3 gap-3">
         <Field>
-          <FieldLabel>状态</FieldLabel>
+          <FieldLabel>{t("task.status")}</FieldLabel>
           <TaskStatusSelect bind:value={status} />
         </Field>
 
         <Field>
-          <FieldLabel>优先级</FieldLabel>
+          <FieldLabel>{t("task.priority")}</FieldLabel>
           <PrioritySelect bind:value={priority} />
         </Field>
 
         <Field>
-          <FieldLabel>类型</FieldLabel>
+          <FieldLabel>{t("task.type")}</FieldLabel>
           <TaskTypeSelect bind:value={type} />
         </Field>
       </div>
 
+      {#if client && projectRoomId}
+        <Field>
+          <FieldLabel>{t("task.assignee")}</FieldLabel>
+          <AssigneeSelect
+            {client}
+            {projectRoomId}
+            bind:value={assignee}
+          />
+        </Field>
+      {/if}
+
       <DialogFooter>
         <Button type="button" variant="outline" onclick={() => handleOpenChange(false)}>
-          取消
+          {t("common.cancel")}
         </Button>
         <Button type="submit" disabled={!name.trim() || isSubmitting}>
-          {isSubmitting ? "创建中..." : "创建"}
+          {isSubmitting ? t("common.creating") : t("common.create")}
         </Button>
       </DialogFooter>
     </form>

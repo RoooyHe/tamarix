@@ -1,13 +1,13 @@
+import { t } from "$lib/i18n";
+
 // --- Task Status ---
 export type TaskStatus = "todo" | "in_progress" | "review" | "done" | "closed";
 
-export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: "待办",
-  in_progress: "进行中",
-  review: "审核中",
-  done: "已完成",
-  closed: "已关闭"
-};
+// Reactive label helpers: use t() so they update when locale changes.
+// In Svelte templates, use t("status.todo") directly or call these functions inline.
+export function getStatusLabel(status: TaskStatus): string {
+  return t("status." + status);
+}
 
 export const TASK_STATUS_ORDER: TaskStatus[] = [
   "todo",
@@ -20,12 +20,9 @@ export const TASK_STATUS_ORDER: TaskStatus[] = [
 // --- Priority ---
 export type Priority = "critical" | "high" | "medium" | "low";
 
-export const PRIORITY_LABELS: Record<Priority, string> = {
-  critical: "紧急",
-  high: "高",
-  medium: "中",
-  low: "低"
-};
+export function getPriorityLabel(priority: Priority): string {
+  return t("priority." + priority);
+}
 
 export const PRIORITY_ORDER: Priority[] = [
   "critical",
@@ -37,13 +34,9 @@ export const PRIORITY_ORDER: Priority[] = [
 // --- Task Type ---
 export type TaskType = "bug" | "feature" | "task" | "improvement" | "epic";
 
-export const TASK_TYPE_LABELS: Record<TaskType, string> = {
-  bug: "缺陷",
-  feature: "功能",
-  task: "任务",
-  improvement: "改进",
-  epic: "史诗"
-};
+export function getTypeLabel(type: TaskType): string {
+  return t("type." + type);
+}
 
 // --- Task Interface ---
 export interface Task {
@@ -103,6 +96,28 @@ export type EstimateUnit = "story_points" | "hours" | "days";
 // --- Relation Type ---
 export type RelationType = "blocks" | "duplicates" | "relates" | "subtask_of";
 
+// --- Attachment Interface ---
+export interface Attachment {
+  /** Matrix event ID */
+  eventId: string;
+  /** File name */
+  fileName: string;
+  /** MIME type */
+  mimeType: string;
+  /** File size in bytes */
+  size: number;
+  /** mxc:// URL from Matrix */
+  mxcUrl: string;
+  /** Thumbnail mxc:// URL (for images/videos) */
+  thumbnailMxcUrl?: string;
+  /** Thumbnail info */
+  thumbnailInfo?: { w: number; h: number; mimetype: string; size: number };
+  /** Who uploaded */
+  uploadedBy: string;
+  /** When uploaded (ms since epoch) */
+  uploadedAt: number;
+}
+
 // --- Comment Interface ---
 export interface Comment {
   /** Matrix event ID */
@@ -113,6 +128,8 @@ export interface Comment {
   content: string;
   /** Event timestamp (ms since epoch) */
   timestamp: number;
+  /** File attachments (from m.image/m.file/m.video/m.audio messages) */
+  attachments?: Attachment[];
 }
 
 // --- Custom State Event Types ---

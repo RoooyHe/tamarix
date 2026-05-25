@@ -3,8 +3,11 @@ import type { MatrixClient, Room } from "matrix-js-sdk";
 import { EventType, Preset } from "matrix-js-sdk";
 import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
 import { roomToTask, isTaskRoom } from "$lib/matrix/room-utils";
-import { TAMARIX_EVENT_TYPES } from "$lib/matrix/types";
+import { TAMARIX_EVENT_TYPES, getStatusLabel } from "$lib/matrix/types";
+import { generateNextTicketId } from "$lib/matrix/ticket-id";
+import { canTransition } from "$lib/matrix/workflow";
 import { onSyncUpdate } from "$lib/matrix/client";
+import { t } from "$lib/i18n";
 
 const TASKS_CONTEXT_KEY = "tamarix:tasks";
 
@@ -41,7 +44,7 @@ function createTasksState() {
 
       tasks = filtered.map(roomToTask);
     } catch (e) {
-      error = e instanceof Error ? e.message : "加载任务失败";
+      error = e instanceof Error ? e.message : t("error.load_tasks");
     } finally {
       isLoading = false;
     }
@@ -75,12 +78,16 @@ function createTasksState() {
       status?: TaskStatus;
       priority?: Priority;
       type?: TaskType;
+      assignee?: string;
     }
   ) {
     isLoading = true;
     error = null;
     try {
       const domain = client.getDomain()!;
+
+      // Generate the next ticket ID for this project
+      const ticketId = await generateNextTicketId(client, projectRoomId);
 
       const result = await client.createRoom({
         name: options.name,
@@ -101,6 +108,11 @@ function createTasksState() {
             state_key: "",
             content: { status: options.status ?? "todo" }
           },
+          {
+            type: TAMARIX_EVENT_TYPES.TICKET_ID,
+            state_key: "",
+            content: { id: ticketId }
+          },
           ...(options.priority
             ? [{
                 type: TAMARIX_EVENT_TYPES.PRIORITY,
@@ -113,6 +125,13 @@ function createTasksState() {
                 type: TAMARIX_EVENT_TYPES.TASK_TYPE,
                 state_key: "",
                 content: { type: options.type }
+              }]
+            : []),
+          ...(options.assignee
+            ? [{
+                type: TAMARIX_EVENT_TYPES.ASSIGNEE,
+                state_key: "",
+                content: { user_id: options.assignee }
               }]
             : [])
         ]
@@ -135,8 +154,7 @@ function createTasksState() {
 
       return result.room_id;
     } catch (e) {
-      error = e instanceof Error ? e.message : "创建任务失败";
-      return undefined;
+      error = e instanceof Error ? e.message : t("error.create_task");
     } finally {
       isLoading = false;
     }
@@ -149,6 +167,13 @@ function createTasksState() {
     projectRoomId?: string
   ) {
     try {
+      // Validate workflow transition
+      const currentTask = tasks.find(task => task.roomId === roomId);
+      if (currentTask && !canTransition(currentTask.status, status)) {
+        error = t("error.invalid_transition", { from: getStatusLabel(currentTask.status), to: getStatusLabel(status) });
+        return;
+      }
+
       await client.sendStateEvent(
         roomId,
         TAMARIX_EVENT_TYPES.TASK_STATUS as any,
@@ -158,12 +183,12 @@ function createTasksState() {
       // Refresh
       fetchTasksFromRooms(client, projectRoomId);
     } catch (e) {
-      error = e instanceof Error ? e.message : "更新状态失败";
+      error = e instanceof Error ? e.message : t("error.update_status");
     }
   }
 
   function getTaskById(taskId: string): Task | undefined {
-    return tasks.find(t => t.roomId === taskId || t.ticketId === taskId);
+    return tasks.find(task => task.roomId === taskId || task.ticketId === taskId);
   }
 
   return {

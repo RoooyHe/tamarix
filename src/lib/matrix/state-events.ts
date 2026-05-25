@@ -87,6 +87,13 @@ export async function setAssignee(
   await sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.ASSIGNEE, { user_id: userId });
 }
 
+export async function clearAssignee(
+  client: MatrixClient,
+  roomId: string
+): Promise<void> {
+  await sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.ASSIGNEE, {});
+}
+
 export async function setRelation(
   client: MatrixClient,
   roomId: string,

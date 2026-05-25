@@ -2,6 +2,7 @@ import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
 import { getClient, hasClient } from "$lib/matrix/client";
 import { loginWithPassword, restoreSession, logout as matrixLogout } from "$lib/matrix/auth";
+import { t } from "$lib/i18n";
 
 const AUTH_CONTEXT_KEY = "tamarix:auth";
 
@@ -30,7 +31,7 @@ function createAuthState() {
       isLoggedIn = true;
       client = getClient();
     } catch (e) {
-      error = e instanceof Error ? e.message : "登录失败";
+      error = e instanceof Error ? e.message : t("error.login_failed");
       isLoggedIn = false;
     } finally {
       isLoading = false;
@@ -47,7 +48,7 @@ function createAuthState() {
       isLoggedIn = true;
       client = getClient();
     } catch (e) {
-      error = e instanceof Error ? e.message : "登录失败";
+      error = e instanceof Error ? e.message : t("error.login_failed");
       isLoggedIn = false;
     } finally {
       isLoading = false;
@@ -65,7 +66,7 @@ function createAuthState() {
         client = getClient();
       }
     } catch (e) {
-      error = e instanceof Error ? e.message : "恢复会话失败";
+      error = e instanceof Error ? e.message : t("error.restore_failed");
     } finally {
       isLoading = false;
     }

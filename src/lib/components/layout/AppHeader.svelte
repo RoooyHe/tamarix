@@ -20,11 +20,14 @@
   import { getProjectsContext } from "$lib/stores/projects.svelte";
   import { getTasksContext } from "$lib/stores/tasks.svelte";
   import { SidebarTrigger } from "$lib/components/ui/sidebar";
-  import { LogOut, Settings, Search } from "@lucide/svelte";
+  import { LogOut, Settings, Search, Sun, Moon, Monitor, Globe } from "@lucide/svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
+  import { getUiContext } from "$lib/stores/ui.svelte";
+  import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
+  let ui = getUiContext();
   let projects = getProjectsContext();
   let tasks = getTasksContext();
 
@@ -44,7 +47,7 @@
     if (segments[0] === "project" && segments[1]) {
       const projectId = decodeURIComponent(segments[1]);
       const project = projects.getProjectById(projectId);
-      items.push({ label: "项目", href: "/dashboard" });
+      items.push({ label: t("breadcrumb.projects"), href: "/dashboard" });
       items.push({
         label: project?.name ?? projectId,
         href: `/project/${encodeURIComponent(projectId)}`
@@ -55,9 +58,9 @@
         items.push({ label: task?.title ?? taskId });
       }
     } else if (segments[0] === "dashboard") {
-      items.push({ label: "仪表盘" });
+      items.push({ label: t("breadcrumb.dashboard") });
     } else if (segments[0] === "settings") {
-      items.push({ label: "设置" });
+      items.push({ label: t("breadcrumb.settings") });
     }
 
     return items;
@@ -93,9 +96,55 @@
   <!-- Search button (⌘K) -->
   <Button variant="outline" size="sm" class="h-7 gap-2 text-muted-foreground" onclick={openCommandPalette}>
     <Search class="h-3.5 w-3.5" />
-    <span class="text-xs">搜索</span>
+    <span class="text-xs">{t("search.title")}</span>
     <kbd class="pointer-events-none ml-1 inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">⌘K</kbd>
   </Button>
+
+  <!-- Theme toggle -->
+  <DropdownMenu>
+    <DropdownMenuTrigger>
+      <Button variant="ghost" size="icon" class="h-8 w-8">
+        <Sun class="h-4 w-4 rotate-0 scale-100 transition-transform dark:rotate-90 dark:scale-0" />
+        <Moon class="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      <DropdownMenuItem onclick={() => ui.setTheme('light')}>
+        <Sun class="h-4 w-4" />
+        {t("theme.light")}
+        {#if ui.theme === 'light'}<span class="ml-auto">✓</span>{/if}
+      </DropdownMenuItem>
+      <DropdownMenuItem onclick={() => ui.setTheme('dark')}>
+        <Moon class="h-4 w-4" />
+        {t("theme.dark")}
+        {#if ui.theme === 'dark'}<span class="ml-auto">✓</span>{/if}
+      </DropdownMenuItem>
+      <DropdownMenuItem onclick={() => ui.setTheme('system')}>
+        <Monitor class="h-4 w-4" />
+        {t("theme.system")}
+        {#if ui.theme === 'system'}<span class="ml-auto">✓</span>{/if}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+
+  <!-- Language switch -->
+  <DropdownMenu>
+    <DropdownMenuTrigger>
+      <Button variant="ghost" size="icon" class="h-8 w-8">
+        <Globe class="h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      <DropdownMenuItem onclick={() => ui.setLocale('zh')}>
+        🇨🇳 {t("menu.language_zh")}
+        {#if ui.locale === 'zh'}<span class="ml-auto">✓</span>{/if}
+      </DropdownMenuItem>
+      <DropdownMenuItem onclick={() => ui.setLocale('en')}>
+        🇺🇸 {t("menu.language_en")}
+        {#if ui.locale === 'en'}<span class="ml-auto">✓</span>{/if}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
 
   <!-- User menu -->
   <DropdownMenu>
@@ -110,11 +159,11 @@
       </DropdownMenuItem>
       <DropdownMenuItem onclick={() => goto("/settings")}>
         <Settings class="h-4 w-4" />
-        设置
+        {t("menu.settings")}
       </DropdownMenuItem>
       <DropdownMenuItem class="gap-2 text-destructive" onclick={() => auth.logout()}>
         <LogOut class="h-4 w-4" />
-        退出登录
+        {t("menu.logout")}
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>

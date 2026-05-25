@@ -19,7 +19,8 @@
 | UI 组件库 | ✅ 已安装 — shadcn-svelte (zinc base) |
 | Matrix 集成 | ✅ 已完成 — matrix-js-sdk + V3 sync + Space/Room CRUD |
 | 业务代码 | ✅ P0 已完成 — 登录/项目/任务CRUD/评论/Sync事件监听 |
-| P1 进度 | 🔧 P1 进行中（9/17）— 看板/视图切换/过滤/CommandPalette 已完成；Data Table / 归档 / 文件上传 待实现 |
+| P1 进度 | ✅ P1 已完成（17/17）— 看板拖拽 + Data Table + 归档 + 文件上传/附件 + 主题切换 全部实现 |
+| P2 进度 | 🔧 P2 进行中（16/21）— i18n ✅ 完成；前端兜底层 10/10；AS 增强层 0/6 |
 | 路由/页面 | 登录页 + Dashboard + 项目任务列表 + 任务详情(含评论) |
 
 ---
@@ -194,6 +195,7 @@ tamarix/
 │   │   │   │   ├── TaskCreateDialog.svelte  # 新建任务（Dialog + Form）
 │   │   │   │   ├── TaskDetailPanel.svelte   # 任务详情侧面板
 │   │   │   │   ├── TaskCommentInput.svelte  # 评论输入
+│   │   │   │   ├── AssigneeSelect.svelte   # 指派人选择（Combobox 搜索成员）
 │   │   │   │   ├── FileUploadZone.svelte    # 拖拽上传区域 + 文件选择按钮
 │   │   │   │   ├── AttachmentList.svelte     # 附件列表（文件名/大小/预览/下载）
 │   │   │   │   └── AttachmentPreview.svelte  # 图片/视频内联预览
@@ -369,23 +371,25 @@ bun x shadcn-svelte@latest add card tabs command popover checkbox tooltip
 | 3 | KanbanColumn | `src/lib/components/board/KanbanColumn.svelte` | Card 容器 + 拖放区域 | ✅ |
 | 4 | KanbanBoard | `src/lib/components/board/KanbanBoard.svelte` | 多列水平滚动，拖拽跨列改状态 | ✅ |
 | 5 | 看板视图 | `src/routes/project/[id]/+page.svelte` 内嵌 | Tabs 切换看板视图（非独立路由） | ✅ |
-| 6 | 任务 Data Table | `src/routes/project/[id]/+page.svelte` 重构 | 替换简易列表为 Data Table | ❌ |
+| 6 | 任务 Data Table | `src/routes/project/[id]/+page.svelte` 重构 | 替换简易列表为 Data Table | ✅ |
 | 7 | 视图切换 | `src/routes/project/[id]/+page.svelte` | Tabs 切换：列表 / 看板 | ✅ |
 | 8 | Command Palette | `src/lib/components/common/CommandPalette.svelte` | ⌘K 全局搜索 | ✅ |
 | 9 | 过滤面板 | `src/routes/project/[id]/+page.svelte` 增强 | Select/Checkbox 过滤：指派人、优先级、标签 | ✅ |
-| 10 | 归档 State Event 封装 | `src/lib/matrix/state-events.ts` 扩展 | 添加 `setArchive(client, roomId, archived)` 和 `getArchiveState(client, roomId)` | ❌ |
-| 11 | Task 接口扩展 | `src/lib/matrix/types.ts` 扩展 | Task 增加 `archived?: boolean; archivedBy?: string; archivedAt?: string` 字段 | ❌ |
-| 12 | 归档 UI | `src/routes/project/[id]/+page.svelte` + `src/routes/project/[id]/task/[taskId]/+page.svelte` 增强 | 过滤面板加"显示归档"开关；任务详情 DropdownMenu 加归档/取消归档（AlertDialog 确认）；归档任务显示 Badge | ❌ |
-| 13 | Media 工具封装 | `src/lib/matrix/media.ts` | `uploadFile(client, file, options)` → `client.uploadContent()` + 返回 `mxc://` URL；`getDownloadUrl(client, mxcUrl)` → HTTP 下载链接；`getThumbnailUrl(client, mxcUrl, width, height)` → 缩略图链接 | ❌ |
-| 14 | Attachment 接口 | `src/lib/matrix/types.ts` 扩展 | 新增 `Attachment` 接口：`{ eventId, fileName, mimeType, size, mxcUrl, downloadUrl?, thumbnailUrl?, uploadedBy, uploadedAt }`；扩展 `Comment` 接口增加 `attachments?: Attachment[]` | ❌ |
-| 15 | FileUploadZone | `src/lib/components/task/FileUploadZone.svelte` | 拖拽区域 + 点击选择；文件类型校验（MIME whitelist）；大小限制（默认 50MB）；上传进度条；调用 `media.ts` 上传后发送 `m.room.message` | ❌ |
-| 16 | AttachmentList | `src/lib/components/task/AttachmentList.svelte` + `AttachmentPreview.svelte` | 从 timeline 提取 msgtype≠m.text 的消息；按文件类型显示图标/缩略图；点击下载；图片内联预览 | ❌ |
-| 17 | 评论+附件集成 | `src/lib/stores/comments.svelte.ts` 扩展 | `loadComments()` 中解析 `m.image`/`m.file`/`m.video` 消息的 `content.url`/`content.info`；`Comment` 类型支持附件字段；发送评论支持附加文件 | ❌ |
+| 10 | 归档 State Event 封装 | `src/lib/matrix/state-events.ts` 扩展 | 添加 `setArchive(client, roomId, archived)` 和 `getArchiveState(client, roomId)` | ✅ |
+| 11 | Task 接口扩展 | `src/lib/matrix/types.ts` 扩展 | Task 增加 `archived?: boolean; archivedBy?: string; archivedAt?: string` 字段 | ✅ |
+| 12 | 归档 UI | `src/routes/project/[id]/+page.svelte` + `src/routes/project/[id]/task/[taskId]/+page.svelte` 增强 | 过滤面板加"显示归档"开关；任务详情 DropdownMenu 加归档/取消归档（AlertDialog 确认）；归档任务显示 Badge | ✅ |
+| 13 | Media 工具封装 | `src/lib/matrix/media.ts` | `uploadFile(client, file, options)` → `client.uploadContent()` + 返回 `mxc://` URL；`getDownloadUrl(client, mxcUrl)` → HTTP 下载链接；`getThumbnailUrl(client, mxcUrl, width, height)` → 缩略图链接 | ✅ |
+| 14 | Attachment 接口 | `src/lib/matrix/types.ts` 扩展 | 新增 `Attachment` 接口：`{ eventId, fileName, mimeType, size, mxcUrl, downloadUrl?, thumbnailUrl?, uploadedBy, uploadedAt }`；扩展 `Comment` 接口增加 `attachments?: Attachment[]` | ✅ |
+| 15 | FileUploadZone | `src/lib/components/task/FileUploadZone.svelte` | 拖拽区域 + 点击选择；文件类型校验（MIME whitelist）；大小限制（默认 50MB）；上传进度条；调用 `media.ts` 上传后发送 `m.room.message` | ✅ |
+| 17 | 评论+附件集成 | `src/lib/stores/comments.svelte.ts` 扩展 | `loadComments()` 中解析 `m.image`/`m.file`/`m.video` 消息的 `content.url`/`content.info`；`Comment` 类型支持附件字段；发送评论支持附加文件 | ✅ |
+| 18 | 主题切换 | `src/lib/stores/ui.svelte.ts` + `src/app.html` + `AppHeader.svelte` | `ui.svelte.ts` 增加 `theme` 状态（`light`/`dark`/`system`），`$effect` 监听 → 修改 `document.documentElement.classList`，持久化 `localStorage`；`app.html` 内联脚本读 `localStorage` 避免 FOUC；AppHeader DropdownMenu 增加 Sun/Moon 切换按钮 | ✅ |
 ---
 
-### P2 — 智能化（Application Service + 后端）
+### P2 — 智能化（前端兜底 + Application Service 增强）
 
-**目标：** 编号生成、工作流校验、搜索索引、变更历史。
+**目标：** i18n 国际化、编号生成、工作流校验、搜索、变更历史。
+
+**架构原则：前端可独立运行，AS 为增强层。** 所有 P2 功能在没有 AS 时前端可独立完成。AS 代码照常编写，但与前端幂等共存——两端可安全同时运行，AS 发现前端已处理则跳过。
 
 **新增 shadcn-svelte 组件：**
 
@@ -393,21 +397,44 @@ bun x shadcn-svelte@latest add card tabs command popover checkbox tooltip
 bun x shadcn-svelte@latest add alert collapsible table pagination
 ```
 
-**新增 Application Service（独立目录 `as/`）：**
+#### 前端兜底层（无 AS 也可用）
 
 | # | 步骤 | 文件 | 说明 |
 |---|---|---|---|
-| 1 | AS 入口 | `as/src/index.ts` | 监听 Matrix 事件 |
-| 2 | 编号生成 | `as/src/ticket-id.ts` | Room 创建时注入 `com.tamarix.ticket_id` |
-| 3 | 工作流引擎 | `as/src/workflow.ts` | 状态流转规则校验 |
-| 4 | Schema 校验 | `as/src/schema.ts` | 自定义 state event JSON schema |
-| 5 | 搜索索引 | `as/src/indexer.ts` | 同步 state → SQLite 索引 |
-| 6 | AS 配置 | `as/config.yaml` | homeserver.yaml 注册 |
-| **前端部分：** | | | |
-| 7 | 变更历史 | `src/lib/components/task/TaskHistory.svelte` | Timeline 展示 "谁在何时改了什么" |
-| 8 | 任务关联 | `src/lib/components/task/TaskRelations.svelte` | blocks/duplicates/relates 关系 |
-| 9 | 搜索页 | `src/routes/search/+page.svelte` | 全文搜索 + 元数据过滤 |
-| 10 | 评论输入 | `src/lib/components/task/TaskCommentInput.svelte` | Textarea + 发送 |
+| 0a | ✅ i18n 框架 | `src/lib/i18n/index.ts` | 自研轻量方案（Svelte 5 runes），`currentLocale` 状态 + `t(key, params?)` 函数 + `setLocale()`，localStorage 持久化，`<html lang>` 动态更新 |
+| 0b | ✅ 中文翻译 | `src/lib/i18n/locales/zh.ts` | 中文翻译字典（161 条 key），覆盖所有现有硬编码中文文本 |
+| 0c | ✅ 英文翻译 | `src/lib/i18n/locales/en.ts` | 英文翻译字典（161 条 key，与 zh 完全同步） |
+| 0d | ✅ 迁移硬编码中文 | `types.ts` + 全部 `.svelte` 文件 | `TASK_STATUS_LABELS` 等改为 `getXxxLabel()` 响应式函数；所有组件内中文文本 → `t("key")`；`ui.svelte.ts` 增加 `locale` 状态 |
+| 0e | ✅ 语言切换 UI | `src/lib/components/layout/AppHeader.svelte` | 用户 DropdownMenu 增加 Globe 图标语言切换（中文/English） |
+| 1 | ✅ 编号生成（前端） | `src/lib/matrix/ticket-id.ts` | `generateNextTicketId(client, projectRoomId)` — 遍历项目子房间找最大 ticketId 编号 +1，返回 `"TAM-{n}"` 格式 |
+| 2 | ✅ 集成编号到创建流程 | `src/lib/stores/tasks.svelte.ts` | `createTask()` 调用 `generateNextTicketId()`，结果放入 `initial_state` 的 `com.tamarix.ticket_id`（与 AS 产出格式一致） |
+| 2a | ✅ 指派人选择 | `src/lib/components/task/AssigneeSelect.svelte` | Combobox（Command + Popover）搜索项目 Space 成员列表，选择后写入 `com.tamarix.assignee` state event（`{ user_id }`），TaskCreateDialog + TaskDetailPanel 集成 |
+| 3 | ✅ 工作流校验（前端） | `src/lib/matrix/workflow.ts` | 导出 `VALID_TRANSITIONS` 白名单 + `canTransition(from, to)` + `getAllowedNextStatuses(current)`。流转规则：`todo→[in_progress,closed]`、`in_progress→[review,todo,closed]`、`review→[done,in_progress,closed]`、`done→[closed]`、`closed→[]` |
+| 4 | ✅ 集成工作流到 UI | `tasks.svelte.ts` + `TaskStatusSelect.svelte` + `KanbanBoard.svelte` | `updateTaskStatus()` 内校验；`TaskStatusSelect` 过滤禁用非法选项；`KanbanBoard` 拖拽校验目标列合法性 |
+| 5 | ✅ 内存搜索 | `src/lib/matrix/search.ts` | `searchTasks(tasks, query)` — 全字段 filter（title/description/tags/assignee/ticketId/status/priority/type），支持 `status:done priority:high keyword` 语法 |
+| 6 | ✅ 变更历史 | `src/lib/components/task/TaskHistory.svelte` | 读取 Room state event 变更历史（`com.tamarix.*` 过滤 + 时间排序），Timeline 展示"谁在何时改了什么" |
+| 7 | ✅ 任务关联 | `src/lib/components/task/TaskRelations.svelte` | 读写 `com.tamarix.relation` state event，展示 blocks/duplicates/relates 关系链 |
+| 8 | ✅ 搜索页 | `src/routes/search/+page.svelte` | 全文搜索输入框 + 元数据过滤 + 结果列表，调用 `searchTasks()` |
+| 9 | ✅ 评论输入 | `src/lib/components/task/TaskCommentInput.svelte` | Textarea + 发送 |
+
+#### Application Service 增强层（与前端幂等共存）
+
+| # | 步骤 | 文件 | 说明 |
+|---|---|---|---|
+| 10 | AS 入口 | `as/src/index.ts` | 监听 Matrix 事件，分发到各处理器 |
+| 11 | AS 编号生成 | `as/src/ticket-id.ts` | 监听 room 创建，**先检查是否已有 `com.tamarix.ticket_id`，有则跳过**，无则注入。与前端 #1 产出格式一致，两端安全共存 |
+| 12 | AS 工作流引擎 | `as/src/workflow.ts` | 监听 `com.tamarix.task_status` 变更，非法流转发送 `m.room.message` 通知 + 回滚。前端 #3 的软校验 + AS 硬校验 = 双重保障 |
+| 13 | AS Schema 校验 | `as/src/schema.ts` | 自定义 state event JSON schema 校验，拒绝非法结构 |
+| 14 | AS 搜索索引 | `as/src/indexer.ts` | 同步 state → SQLite 索引，未来可暴露 HTTP API。前端 #5 内存搜索为默认，AS 索引为增强 |
+| 15 | AS 配置 | `as/config.yaml` + `as/package.json` | homeserver.yaml 注册，独立包 |
+
+#### AS 与前端共存接口约定
+
+| State Event | 前端行为 | AS 行为 | 共存策略 |
+|---|---|---|---|
+| `com.tamarix.ticket_id` | `createTask()` 时 `initial_state` 预注入 | 监听 create，**有则跳过，无则注入** | 幂等：先到先得，格式一致 |
+| `com.tamarix.task_status` | UI 白名单校验，禁用非法操作 | 监听变更，**非法则回滚 + 通知** | 前端软校验 + AS 硬校验，互补 |
+| 搜索 | 内存 `Array.filter()`，即时响应 | SQLite 索引，未来 HTTP API | 前端默认，AS 可选切换 |
 
 ---
 
@@ -442,8 +469,9 @@ bun x shadcn-svelte@latest add chart form switch toggle
 | 拖拽 | 原生 HTML5 Drag & Drop | 无额外依赖 |
 | Data Table | TanStack Table (via shadcn-svelte) | 功能完整，排序/过滤/分页 |
 | 表单 | Formsnap + Superforms + Zod | P2 阶段引入，shadcn-svelte 推荐 |
+| i18n | 自研轻量方案（Svelte 5 runes） | 仅中/英需求，无需 ICU 复数等高级功能，与 runes 体系一致零学习成本 |
 | AS 实现 | Bun + TypeScript | 与前端技术栈统一 |
-| 搜索索引 | SQLite (better-sqlite3) | P2 轻量方案 |
+| 搜索索引 | 前端内存搜索（默认）+ SQLite (better-sqlite3)（AS 增强） | 前端兜底即时响应，AS 索引支持大规模数据 |
 | 图表 | LayerChart (via shadcn-svelte Chart) | P3 阶段引入 |
 
 ---
@@ -452,7 +480,7 @@ bun x shadcn-svelte@latest add chart form switch toggle
 
 | 风险 | 影响 | 缓解措施 |
 |---|---|---|
-| Matrix Room 数量多时同步慢 | 任务列表加载 >5s | P2 阶段 AS 索引，前端只查询索引 API |
+| Matrix Room 数量多时同步慢 | 任务列表加载 >5s | 前端内存搜索兜底（<2000 条无感知差异），AS 索引增强（>2000 条可切换远程搜索） |
 | shadcn-svelte 组件样式与 DESIGN.md 冲突 | 视觉不统一 | 通过 CSS 变量覆盖 + 自定义 className 适配 |
 | 自定义 state event 无 schema 校验 | 数据不一致 | AS 拦截非法事件；前端做客户端校验 |
 | Space 只支持一层嵌套 | 无法表达 Epic→Story→Task 三层 | 用 `com.tamarix.relation` 的 `subtask_of` 替代 |
@@ -467,6 +495,6 @@ bun x shadcn-svelte@latest add chart form switch toggle
 | 阶段 | 预计工作量 | 核心交付物 |
 |---|---|---|
 | P0 - MVP | 3-4 周 | 登录 → 项目列表(Sidebar) → 任务 CRUD(Dialog/Data Table) → 任务详情(Tabs+聊天) |
-| P1 - 看板 | 1-2 周 | 看板拖拽 ✅ + Data Table 排序过滤 ❌ + Command Palette(⌘K) ✅ + 归档/取消归档 ❌ |
-| P2 - 智能化 | 2-3 周 | AS 编号生成 + 工作流 + 搜索索引 + 变更历史 |
+| P1 - 看板 | 1-2 周 | ✅ 全部完成：看板拖拽 + Data Table + Command Palette(⌘K) + 归档 + 文件上传/附件 + 主题切换 |
+| P2 - 智能化 | 2-3 周 | i18n 国际化 + 前端兜底（编号/工作流/搜索）+ AS 增强层 + 变更历史 + 任务关联 |
 | P3 - 企业级 | 4-6 周 | Chart 报表 + 提醒 Bot + Git Bridge + Formsnap 自定义字段 |

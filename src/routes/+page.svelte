@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getAuthContext } from "$lib/stores/auth.svelte";
+  import { t } from "$lib/i18n";
   import { goto } from "$app/navigation";
 
   let auth = getAuthContext();
@@ -15,5 +16,5 @@
 </script>
 
 <div class="flex h-screen items-center justify-center bg-background">
-  <div class="text-muted-foreground">加载中...</div>
+  <div class="text-muted-foreground">{t("common.loading")}</div>
 </div>

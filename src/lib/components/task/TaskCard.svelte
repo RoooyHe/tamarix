@@ -2,7 +2,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Avatar, AvatarFallback, AvatarImage } from "$lib/components/ui/avatar";
   import type { Task } from "$lib/matrix/types";
-  import { TASK_STATUS_LABELS, PRIORITY_LABELS, TASK_TYPE_LABELS } from "$lib/matrix/types";
+  import { getStatusLabel, getPriorityLabel } from "$lib/matrix/types";
   import { Bug, Sparkles, ListTodo, Wrench, Target, Calendar, Zap } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
@@ -47,7 +47,7 @@
   <!-- Status indicator -->
   <div class="mt-1">
     <Badge variant={statusVariant[task.status] ?? "outline"} class="text-[10px]">
-      {TASK_STATUS_LABELS[task.status]}
+      {getStatusLabel(task.status)}
     </Badge>
   </div>
 
@@ -71,7 +71,7 @@
     <div class="mt-2 flex flex-wrap items-center gap-1.5">
       {#if task.priority}
         <Badge variant="outline" class={priorityColorClass[task.priority] ?? ""}>
-          {PRIORITY_LABELS[task.priority]}
+          {getPriorityLabel(task.priority)}
         </Badge>
       {/if}
       {#each task.tags as tag}

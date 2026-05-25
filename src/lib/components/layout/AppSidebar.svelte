@@ -18,6 +18,7 @@
   import { getAuthContext } from "$lib/stores/auth.svelte";
   import { getProjectsContext } from "$lib/stores/projects.svelte";
   import { Plus, FolderKanban, LogOut } from "@lucide/svelte";
+  import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
   let projects = getProjectsContext();
@@ -47,7 +48,7 @@
     <!-- Projects section -->
     <SidebarGroup>
       <SidebarGroupLabel class="flex items-center justify-between">
-        <span>项目</span>
+        <span>{t("breadcrumb.projects")}</span>
         <Button
           variant="ghost"
           size="icon"
@@ -63,10 +64,10 @@
           <form onsubmit={(e) => { e.preventDefault(); handleCreateProject(); }} class="flex gap-1">
             <input
               bind:value={newProjectName}
-              placeholder="项目名称..."
+              placeholder={t("project.name_placeholder")}
               class="flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
             />
-            <Button type="submit" size="sm" class="h-7 text-xs">创建</Button>
+            <Button type="submit" size="sm" class="h-7 text-xs">{t("common.create")}</Button>
           </form>
         </div>
       {/if}
@@ -74,9 +75,9 @@
       <SidebarGroupContent>
         <SidebarMenu>
           {#if projects.isLoading}
-            <div class="px-2 py-4 text-xs text-muted-foreground">加载中...</div>
+            <div class="px-2 py-4 text-xs text-muted-foreground">{t("common.loading")}</div>
           {:else if projects.projects.length === 0}
-            <div class="px-2 py-4 text-xs text-muted-foreground">暂无项目，点击 + 创建</div>
+            <div class="px-2 py-4 text-xs text-muted-foreground">{t("project.no_projects_hint")}</div>
           {:else}
             {#each projects.projects as project}
               <SidebarMenuItem>
@@ -108,7 +109,7 @@
         size="icon"
         class="h-7 w-7"
         onclick={() => auth.logout()}
-        title="退出登录"
+        title={t("menu.logout")}
       >
         <LogOut class="h-3.5 w-3.5" />
       </Button>

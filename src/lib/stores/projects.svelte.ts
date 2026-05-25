@@ -4,6 +4,7 @@ import { Preset, RoomCreateTypeField, RoomType } from "matrix-js-sdk";
 import type { Project } from "$lib/matrix/types";
 import { roomToProject, isSpaceRoom } from "$lib/matrix/room-utils";
 import { onSyncUpdate } from "$lib/matrix/client";
+import { t } from "$lib/i18n";
 
 const PROJECTS_CONTEXT_KEY = "tamarix:projects";
 
@@ -21,7 +22,7 @@ function createProjectsState() {
       const spaceRooms = rooms.filter(isSpaceRoom);
       projects = spaceRooms.map(roomToProject);
     } catch (e) {
-      error = e instanceof Error ? e.message : "加载项目失败";
+      error = e instanceof Error ? e.message : t("error.load_projects");
     } finally {
       isLoading = false;
     }
@@ -66,8 +67,7 @@ function createProjectsState() {
       fetchProjects(client);
       return result.room_id;
     } catch (e) {
-      error = e instanceof Error ? e.message : "创建项目失败";
-      return undefined;
+      error = e instanceof Error ? e.message : t("error.create_project");
     } finally {
       isLoading = false;
     }
