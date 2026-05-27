@@ -2,26 +2,37 @@
   import { Card } from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
   import { Avatar, AvatarFallback } from "$lib/components/ui/avatar";
+  import { Checkbox } from "$lib/components/ui/checkbox";
   import type { Task } from "$lib/matrix/types";
   import { getPriorityLabel } from "$lib/matrix/types";
-  import { Bug, Sparkles, ListTodo, Wrench, Target, Calendar, Zap } from "@lucide/svelte";
+  import { Bug, Sparkles, ListTodo, Wrench, Target, Calendar, Zap, Lock } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
   import { setDragData } from "$lib/utils/drag";
   import type { TaskDragData } from "$lib/utils/drag";
+  import { useLongPress } from "$lib/utils/use-long-press.svelte";
 
   type IconComponent = Component<LucideProps>;
 
   interface Props {
     task: Task;
+    selected?: boolean;
     onClick?: (task: Task) => void;
+    onToggleSelect?: (taskId: string) => void;
     onDragStart?: (data: TaskDragData) => void;
     onDragEnd?: () => void;
   }
 
-  let { task, onClick, onDragStart, onDragEnd }: Props = $props();
+  let { task, selected = false, onClick, onToggleSelect, onDragStart, onDragEnd }: Props = $props();
 
   let isDragging = $state(false);
+
+  // Long-press handler for touch selection
+  let longPress = $derived(
+    onToggleSelect
+      ? useLongPress(() => onToggleSelect(task.roomId))
+      : null
+  );
 
   const statusVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
     todo: "outline",
@@ -56,19 +67,34 @@
     isDragging = false;
     onDragEnd?.();
   }
+
+  function handleClick(event: MouseEvent) {
+    if (event.shiftKey && onToggleSelect) {
+      event.preventDefault();
+      onToggleSelect(task.roomId);
+    } else {
+      onClick?.(task);
+    }
+  }
 </script>
 
 <Card
-  class="cursor-grab select-none p-3 transition-shadow hover:shadow-md active:cursor-grabbing {isDragging ? 'opacity-50 ring-2 ring-primary' : ''}"
+  class="cursor-grab select-none p-3 min-h-[44px] transition-shadow hover:shadow-md active:cursor-grabbing {isDragging ? 'opacity-50 ring-2 ring-primary' : ''} {selected ? 'ring-2 ring-primary' : ''}"
   draggable="true"
   ondragstart={handleDragStart}
   ondragend={handleDragEnd}
-  onclick={() => onClick?.(task)}
+  onclick={handleClick}
   role="button"
   tabindex={0}
+  {...(longPress ?? {})}
 >
-  <!-- Title row -->
+  <!-- Selection checkbox + Title row -->
   <div class="flex items-start gap-2">
+    {#if onToggleSelect}
+      <button type="button" class="flex min-w-[44px] min-h-[44px] items-center justify-center pt-0.5" onclick={(e) => { e.stopPropagation(); onToggleSelect(task.roomId); }}>
+        <Checkbox checked={selected} />
+      </button>
+    {/if}
     {#if task.type && typeIcon[task.type]}
       {@const Icon = typeIcon[task.type]}
       <Icon class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -90,6 +116,9 @@
       >
         {getPriorityLabel(task.priority)}
       </Badge>
+    {/if}
+    {#if task.encrypted}
+      <Lock class="h-3 w-3 text-muted-foreground" />
     {/if}
     <div class="flex-1"></div>
     {#if task.assignee}

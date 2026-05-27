@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { getAuthContext } from "$lib/stores/auth.svelte";
@@ -21,16 +21,28 @@
   import TaskHistory from "$lib/components/task/TaskHistory.svelte";
   import TaskRelations from "$lib/components/task/TaskRelations.svelte";
   import AssigneeSelect from "$lib/components/task/AssigneeSelect.svelte";
+  import WorklogPanel from "$lib/components/task/WorklogPanel.svelte";
+  import MarkdownEditor from "$lib/components/task/MarkdownEditor.svelte";
   import type { TaskStatus, Priority, TaskType } from "$lib/matrix/types";
-  import { Send, Archive, ArchiveRestore, MoreVertical, Paperclip } from "@lucide/svelte";
   import FileUploadZone from "$lib/components/task/FileUploadZone.svelte";
   import AttachmentList from "$lib/components/task/AttachmentList.svelte";
+  import { Send, Archive, ArchiveRestore, MoreVertical, Paperclip, Eye, EyeOff, MessageSquare, Clock, History, GitBranch, Lock } from "@lucide/svelte";
+  import { getWorklogsContext } from "$lib/stores/worklogs.svelte";
+  import { getRecentTasksContext } from "$lib/stores/recent-tasks.svelte";
+  import { addWatcher, removeWatcher, getWatchers } from "$lib/matrix/state-events";
+  import { setDescription } from "$lib/matrix/state-events";
   import { t } from "$lib/i18n";
+  import { IsMobile } from "$lib/hooks/is-mobile.svelte";
+  import { goto } from "$app/navigation";
+  import { ChevronLeft, ChevronDown, ChevronRight } from "@lucide/svelte";
+  import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "$lib/components/ui/collapsible";
 
   let auth = getAuthContext();
   let tasks = getTasksContext();
   let projects = getProjectsContext();
   let commentsStore = getCommentsContext();
+  let worklogsStore = getWorklogsContext();
+  let recentTasks = getRecentTasksContext();
 
   let projectId = $derived(decodeURIComponent($page.params.id ?? ""));
   let taskId = $derived(decodeURIComponent($page.params.taskId ?? ""));
@@ -38,9 +50,34 @@
   // Find task from store, or load from Matrix
   let task = $derived(tasks.getTaskById(taskId));
 
+  // Watch state
+  let isWatching = $state(false);
+  $effect(() => {
+    if (auth.client && task?.roomId) {
+      const room = auth.client.getRoom(task.roomId);
+      if (room) {
+        const watchers = getWatchers(room);
+        isWatching = watchers.includes(auth.client!.getUserId()!);
+      }
+    }
+  });
+
+  // Track recently viewed tasks
+  $effect(() => {
+    if (task?.roomId && task.title) {
+      recentTasks.addRecentTask(task.roomId, task.title, projectId);
+    }
+  });
+
   let commentText = $state("");
   let showUploadZone = $state(false);
   let activeTab = $state("comments");
+  let isMobile = new IsMobile();
+  let metadataOpen = $state(true);
+
+  function goBack() {
+    goto(`/project/${encodeURIComponent(projectId)}`);
+  }
 
   onMount(() => {
     if (auth.client && tasks.tasks.length === 0) {
@@ -105,7 +142,24 @@
     tasks.fetchTasksFromRooms(auth.client, projectId);
   }
 
-  /** Format a Matrix user ID for display: @user:domain → user */
+  async function handleToggleWatch() {
+    if (!auth.client || !task) return;
+    if (isWatching) {
+      await removeWatcher(auth.client, task.roomId, auth.client.getUserId()!);
+      isWatching = false;
+    } else {
+      await addWatcher(auth.client, task.roomId, auth.client.getUserId()!);
+      isWatching = true;
+    }
+  }
+
+  async function handleSaveDescription(body: string, formattedBody: string) {
+    if (!auth.client || !task) return;
+    await setDescription(auth.client, task.roomId, body, formattedBody);
+    tasks.fetchTasksFromRooms(auth.client, projectId);
+  }
+
+  /** Format a Matrix user ID for display: @user:domain �?user */
   function formatSender(sender: string): string {
     const match = sender.match(/^@([^:]+):/);
     return match ? match[1] : sender;
@@ -138,9 +192,17 @@
 </script>
 
 {#if task}
-  <div class="space-y-4">
+  <div class="space-y-4 pb-20 md:pb-4">
+    <!-- Mobile back button -->
+    {#if isMobile.current}
+      <button type="button" class="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground min-h-[44px]" onclick={goBack}>
+        <ChevronLeft class="h-4 w-4" />
+        {t("common.back")}
+      </button>
+    {/if}
+
     <!-- Header -->
-    <div class="flex items-start gap-3">
+    <div class="flex items-start gap-3 flex-wrap">
       {#if task.ticketId}
         <TaskIdBadge ticketId={task.ticketId} />
       {/if}
@@ -149,6 +211,12 @@
         <Badge variant="outline" class="shrink-0 bg-muted/50">
           <Archive class="mr-1 h-3 w-3" />
           {t("common.archived")}
+        </Badge>
+      {/if}
+      {#if task.encrypted}
+        <Badge variant="outline" class="shrink-0 bg-green-500/10 text-green-600 border-green-200">
+          <Lock class="mr-1 h-3 w-3" />
+          {t("encrypt.encrypted")}
         </Badge>
       {/if}
       <DropdownMenu>
@@ -173,11 +241,24 @@
       </DropdownMenu>
     </div>
 
-    {#if task.description}
-      <p class="text-sm text-muted-foreground">{task.description}</p>
-    {/if}
+    <!-- Description (MarkdownEditor) -->
+    <MarkdownEditor
+      initialBody={task.description ?? task.formattedDescription ?? ""}
+      onsave={handleSaveDescription}
+    />
 
-    <!-- Metadata -->
+    <!-- Metadata (collapsible on mobile) -->
+    <Collapsible bind:open={metadataOpen} class="{isMobile.current ? 'border rounded-lg p-2' : ''}">
+      {#if isMobile.current}
+        <CollapsibleTrigger class="flex items-center gap-1 text-sm font-medium text-foreground w-full mb-2 min-h-[44px]">
+          {#if metadataOpen}
+            <ChevronDown class="h-4 w-4" />
+          {:else}
+            <ChevronRight class="h-4 w-4" />
+          {/if}
+          {t("task.metadata")}
+        </CollapsibleTrigger>
+      {/if}
     <div class="flex flex-wrap gap-3">
       <div class="flex items-center gap-2">
         <span class="text-xs text-muted-foreground">{t("task.status")}</span>
@@ -210,14 +291,33 @@
           <Badge variant="outline">{formatSender(task.assignee)}</Badge>
         {/if}
       </div>
+      <!-- Watch toggle -->
+      <div class="flex items-center gap-2">
+        <Button
+          variant={isWatching ? "secondary" : "ghost"}
+          size="sm"
+          class="h-6 text-xs"
+          onclick={handleToggleWatch}
+        >
+          {#if isWatching}
+            <EyeOff class="mr-1 h-3 w-3" />
+            {t("task.unwatch")}
+          {:else}
+            <Eye class="mr-1 h-3 w-3" />
+            {t("task.watch")}
+          {/if}
+        </Button>
+      </div>
     </div>
+    </Collapsible>
 
     <!-- Tabs -->
     <Tabs bind:value={activeTab}>
-      <TabsList>
-        <TabsTrigger value="details">{t("task.details")}</TabsTrigger>
+      <!-- Desktop: top TabsList -->
+      <TabsList class="w-full overflow-x-auto hidden md:flex">
         <TabsTrigger value="comments">{t("task.comments")} ({commentsStore.comments.length})</TabsTrigger>
         <TabsTrigger value="attachments">{t("task.attachments")} ({allAttachments.length})</TabsTrigger>
+        <TabsTrigger value="worklog">{t("worklog.title")}</TabsTrigger>
         <TabsTrigger value="history">{t("task.history")}</TabsTrigger>
         <TabsTrigger value="relations">{t("task.relations")}</TabsTrigger>
       </TabsList>
@@ -229,7 +329,7 @@
               <div class="text-xs text-muted-foreground">{t("task.created_at")}</div>
               <div class="text-sm">{new Date(task.createdAt).toLocaleString()}</div>
             </div>
-            <div>
+            <div class="hidden md:block">
               <div class="text-xs text-muted-foreground">Room ID</div>
               <div class="font-mono text-xs break-all">{task.roomId}</div>
             </div>
@@ -246,14 +346,14 @@
       <TabsContent value="comments" class="mt-4">
         <div class="space-y-4">
           <!-- Comment input -->
-          <div class="flex gap-2">
+          <div class="flex gap-2 flex-col sm:flex-row">
             <Textarea
               bind:value={commentText}
               placeholder={t("task.comment_placeholder")}
               rows={2}
               class="flex-1"
             />
-            <div class="flex flex-col gap-1">
+            <div class="flex flex-row sm:flex-col gap-1">
               <Button
                 size="icon"
                 onclick={handleSendComment}
@@ -306,7 +406,7 @@
                   <p class="text-sm pl-8">{comment.content}</p>
                   {#if comment.attachments && comment.attachments.length > 0 && auth.client}
                     <div class="mt-2 pl-8">
-                      <AttachmentList attachments={comment.attachments} client={auth.client} />
+                      <AttachmentList attachments={comment.attachments} client={auth.client} roomId={task?.roomId ?? ""} />
                     </div>
                   {/if}
                 </div>
@@ -346,13 +446,19 @@
           {/if}
 
           {#if allAttachments.length > 0 && auth.client}
-            <AttachmentList attachments={allAttachments} client={auth.client} />
+            <AttachmentList attachments={allAttachments} client={auth.client} roomId={task?.roomId ?? ""} showDelete={true} />
           {:else}
             <div class="text-sm text-muted-foreground text-center py-8">
               {t("task.no_attachments")}
             </div>
           {/if}
         </div>
+      </TabsContent>
+
+      <TabsContent value="worklog" class="mt-4">
+        {#if auth.client && task}
+          <WorklogPanel client={auth.client} roomId={task.roomId} estimateHours={task.estimate?.unit === "hours" ? task.estimate.points : undefined} />
+        {/if}
       </TabsContent>
 
       <TabsContent value="history" class="mt-4">
@@ -366,6 +472,31 @@
           <TaskRelations client={auth.client} roomId={task.roomId} allTasks={tasks.tasks} />
         {/if}
       </TabsContent>
+      <!-- Mobile: bottom fixed tab bar -->
+      {#if isMobile.current}
+        <div class="fixed bottom-0 left-0 right-0 z-50 border-t bg-background flex justify-around safe-area-pb">
+          <button type="button" class="flex flex-col items-center justify-center py-2 px-3 min-h-[44px] min-w-[44px] {activeTab === 'comments' ? 'text-primary' : 'text-muted-foreground'}" onclick={() => activeTab = 'comments'}>
+            <MessageSquare class="h-4 w-4" />
+            <span class="text-[10px] mt-0.5">{t("task.comments")}</span>
+          </button>
+          <button type="button" class="flex flex-col items-center justify-center py-2 px-3 min-h-[44px] min-w-[44px] {activeTab === 'attachments' ? 'text-primary' : 'text-muted-foreground'}" onclick={() => activeTab = 'attachments'}>
+            <Paperclip class="h-4 w-4" />
+            <span class="text-[10px] mt-0.5">{t("task.attachments")}</span>
+          </button>
+          <button type="button" class="flex flex-col items-center justify-center py-2 px-3 min-h-[44px] min-w-[44px] {activeTab === 'worklog' ? 'text-primary' : 'text-muted-foreground'}" onclick={() => activeTab = 'worklog'}>
+            <Clock class="h-4 w-4" />
+            <span class="text-[10px] mt-0.5">{t("worklog.title")}</span>
+          </button>
+          <button type="button" class="flex flex-col items-center justify-center py-2 px-3 min-h-[44px] min-w-[44px] {activeTab === 'history' ? 'text-primary' : 'text-muted-foreground'}" onclick={() => activeTab = 'history'}>
+            <History class="h-4 w-4" />
+            <span class="text-[10px] mt-0.5">{t("task.history")}</span>
+          </button>
+          <button type="button" class="flex flex-col items-center justify-center py-2 px-3 min-h-[44px] min-w-[44px] {activeTab === 'relations' ? 'text-primary' : 'text-muted-foreground'}" onclick={() => activeTab = 'relations'}>
+            <GitBranch class="h-4 w-4" />
+            <span class="text-[10px] mt-0.5">{t("task.relations")}</span>
+          </button>
+        </div>
+      {/if}
     </Tabs>
   </div>
 {:else}

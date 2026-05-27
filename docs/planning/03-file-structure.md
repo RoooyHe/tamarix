@@ -134,7 +134,7 @@ tamarix/
 │           └── +page.svelte       # 用户设置
 ├── static/                        # 静态资源
 ├── DESIGN.md                      # 设计系统文档
-└── as/                            # Application Service（P2 增强层）
+└── as/                            # Application Service（P3 AS 增强层）
     ├── config.yaml                # AS 注册配置
     ├── package.json               # AS 独立包
     └── src/

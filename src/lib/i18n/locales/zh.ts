@@ -35,6 +35,7 @@ const zh: Record<string, string> = {
   "common.unarchive": "取消归档",
   "common.archive": "归档",
   "common.no_results": "未找到结果",
+  "common.back": "返回",
 
   // --- Breadcrumb ---
   "breadcrumb.projects": "项目",
@@ -214,6 +215,99 @@ const zh: Record<string, string> = {
 
   // --- Kanban ---
   "kanban.invalid_transition": "无法将任务移至\"{{to}}\"",
+  "kanban.expand_column": "展开",
+  "kanban.collapse_column": "折叠",
+
+  // --- Notification ---
+  "notification.title": "通知",
+  "notification.empty": "暂无通知",
+  "notification.mark_read": "标记已读",
+  "notification.mark_all_read": "全部标记已读",
+  "notification.assign": "将任务分配给了你",
+  "notification.status_change": "任务状态已变更",
+  "notification.mention": "在评论中提到了你",
+  "notification.due_remind": "任务即将到期",
+
+  // --- Project Management ---
+  "project.settings": "项目设置",
+  "project.settings.name": "项目名称",
+  "project.settings.description": "项目描述",
+  "project.settings.save": "保存设置",
+  "project.settings.archive": "归档项目",
+  "project.members": "成员管理",
+  "project.members.invite": "邀请成员",
+  "project.members.remove": "移除",
+  "project.members.role": "角色",
+  "project.template": "项目模板",
+  "project.template.basic": "基础项目",
+  "project.template.kanban": "看板项目",
+  "project.template.scrum": "Scrum 项目",
+
+  // --- Worklog ---
+  "worklog.title": "工时记录",
+  "worklog.add": "登记工时",
+  "worklog.hours": "工时 (小时)",
+  "worklog.hours_placeholder": "输入工时...",
+  "worklog.note": "备注",
+  "worklog.note_placeholder": "输入备注...",
+  "worklog.total": "总工时",
+  "worklog.estimate_vs_actual": "预估 vs 实际",
+  "worklog.delete": "删除记录",
+  "worklog.no_worklogs": "暂无工时记录",
+
+  // --- Bulk Operations ---
+  "bulk.select": "选择",
+  "bulk.selected": "已选 {{n}} 项",
+  "bulk.status": "修改状态",
+  "bulk.priority": "修改优先级",
+  "bulk.archive": "批量归档",
+  "bulk.add_tag": "添加标签",
+  "bulk.confirm": "确认操作",
+
+  // --- Markdown Description ---
+  "markdown.edit": "编辑",
+  "markdown.preview": "预览",
+  "markdown.toolbar.bold": "加粗",
+  "markdown.toolbar.italic": "斜体",
+  "markdown.toolbar.code": "代码",
+  "markdown.toolbar.link": "链接",
+  "markdown.toolbar.list": "列表",
+
+  // --- Dashboard Enhancements ---
+  "dashboard.overdue": "逾期任务",
+  "dashboard.overdue_count": "{{n}} 个逾期任务",
+  "dashboard.overdue_days": "逾期 {{n}} 天",
+  "dashboard.team_workload": "团队工作量",
+  "dashboard.project_progress": "项目进度",
+  "dashboard.quick_create": "快速创建",
+  "dashboard.recently_viewed": "最近查看",
+  "dashboard.completion_rate": "完成率",
+  "dashboard.unassigned": "未指派",
+  "dashboard.overdue_tasks": "逾期任务",
+
+  // --- Attachments Delete ---
+  "attachments.delete": "删除",
+  "attachments.delete_confirm": "确认删除附件",
+  "attachments.delete_desc": "此操作不可撤销，附件将从 Matrix 服务器上永久删除。",
+
+  // --- Task Watch ---
+  "task.watch": "关注",
+  "task.unwatch": "取消关注",
+  "task.watchers": "关注者",
+  "task.metadata": "属性",
+
+  // --- Mobile ---
+  "mobile.list_summary": "{{title}} - {{status}}",
+  "mobile.comment_input_placeholder": "写评论...",
+
+  // --- Encryption ---
+  "encrypt.label": "端到端加密",
+  "encrypt.description": "此房间中的消息和附件将被加密",
+  "encrypt.encrypted": "已加密",
+  "encrypt.unencrypted": "未加密",
+  "encrypt.task_option": "加密任务房间",
+  "encrypt.project_option": "加密项目房间",
+  "encrypt.warning_as": "注意：加密房间无法被 Application Service Bot 读取",
 };
 
 export default zh;

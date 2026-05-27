@@ -28,4 +28,5 @@
 | `com.tamarix.custom_field` | 自定义字段定义（多实例 state_key=字段名） | `{ label: "客户", type: "text" \| "number" \| "select" \| "date", options?: string[], required: false }` | power_level >= 100 |
 | `com.tamarix.custom_field_value` | 自定义字段值（多实例 state_key=字段名） | `{ value: any }` | power_level >= 0 |
 | `com.tamarix.sort_order` | 同列内手动排序 | `{ order: 0 }` | power_level >= 50 |
+| `m.room.encryption` | 房间加密标记 | `{ algorithm: "m.megolm.v1.aes-sha2" }` | power_level >= 50（创建时设置） |
 | `com.tamarix.external_link` | 外部链接（多实例 state_key） | `{ url: "https://...", label: "设计稿" }` | power_level >= 0 |

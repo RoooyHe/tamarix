@@ -4,6 +4,10 @@
   import { setTasksContext } from "$lib/stores/tasks.svelte";
   import { setProjectsContext } from "$lib/stores/projects.svelte";
   import { setCommentsContext } from "$lib/stores/comments.svelte";
+  import { setNotificationsContext } from "$lib/stores/notifications.svelte";
+  import { setWorklogsContext } from "$lib/stores/worklogs.svelte";
+  import { setVersionsContext } from "$lib/stores/versions.svelte";
+  import { setRecentTasksContext } from "$lib/stores/recent-tasks.svelte";
   import { setUiContext } from "$lib/stores/ui.svelte";
   import AppShell from "$lib/components/layout/AppShell.svelte";
   import { onMount } from "svelte";
@@ -18,6 +22,10 @@
   let tasks = setTasksContext();
   let projects = setProjectsContext();
   let comments = setCommentsContext();
+  let notifications = setNotificationsContext();
+  let worklogs = setWorklogsContext();
+  let versions = setVersionsContext();
+  let recentTasks = setRecentTasksContext();
   let ui = setUiContext();
 
   let isRestoring = $state(true);
@@ -40,8 +48,12 @@
     if (auth.isLoggedIn && auth.client) {
       projects.fetchProjects(auth.client);
       projects.startSyncListener(auth.client);
+      notifications.startSyncListener(auth.client);
+      notifications.startDueCheckTimer(auth.client, () => tasks.tasks);
     } else {
       projects.stopSyncListener();
+      notifications.stopSyncListener();
+      notifications.stopDueCheckTimer();
     }
   });
 </script>

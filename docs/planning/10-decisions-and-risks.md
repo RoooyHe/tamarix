@@ -42,3 +42,5 @@
 | Markdown XSS | formatted_body 注入恶意脚本 | 使用 DOMPurify 对 rendered HTML 做消毒；或限制 Markdown 子集 |
 | 移动端拖拽体验 | 触控拖拽不如鼠标精确 | 提供列表视图降级；长按拖拽 + 触觉反馈 |
 | 批量操作部分失败 | 50 个任务修改状态，10 个失败 | 逐个 await + 收集失败列表 + Toast 展示失败项；不使用 Promise.allSettled 全部并行 |
+| E2EE 房间与 AS Bot 冲突 | AS Bot 无法读取加密房间消息/附件 | 加密房间不启用 AS 通知/索引；前端本地处理；UI 提示加密房间限制 |
+| E2EE 加密房间无法被 AS 读取 | 加密房间中的 `m.room.message`（评论、附件）对 AS Bot 不可见 | AS 无法处理加密任务的评论通知、搜索索引；应在文档中明确标注加密任务哪些功能降级；前端提供降级提示 UI |

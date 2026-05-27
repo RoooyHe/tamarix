@@ -48,6 +48,10 @@ export interface Task {
   title: string;
   /** Task description (from m.room.topic) */
   description?: string;
+  /** Rich text description (from com.tamarix.description, Markdown) */
+  formattedDescription?: string;
+  /** Work log entries */
+  worklogs?: WorklogEntry[];
   /** Task status */
   status: TaskStatus;
   /** Priority */
@@ -70,6 +74,8 @@ export interface Task {
   archivedAt?: string;
   /** Parent Space (project) Room ID */
   projectRoomId?: string;
+  /** Whether the task room has encryption enabled */
+  encrypted?: boolean;
   /** Room creation timestamp */
   createdAt: number;
   /** Last update timestamp */
@@ -144,5 +150,69 @@ export const TAMARIX_EVENT_TYPES = {
   RELATION: "com.tamarix.relation",
   SPRINT_META: "com.tamarix.sprint_meta",
   ASSIGNEE: "com.tamarix.assignee",
-  TASK_ARCHIVED: "com.tamarix.task_archived"
+  TASK_ARCHIVED: "com.tamarix.task_archived",
+  DESCRIPTION: "com.tamarix.description",
+  WORKLOG: "com.tamarix.worklog",
+  VERSION: "com.tamarix.version",
+  TASK_VERSION: "com.tamarix.task_version",
+  WATCHER: "com.tamarix.watcher",
+  NOTIFICATION_PREFS: "com.tamarix.notification_prefs"
 } as const;
+
+// --- Worklog Entry ---
+export interface WorklogEntry {
+  /** Matrix user ID */
+  userId: string;
+  /** Hours logged */
+  hours: number;
+  /** Optional note */
+  note?: string;
+  /** When logged (ms since epoch) */
+  loggedAt: number;
+}
+
+// --- Version Info ---
+export interface VersionInfo {
+  /** Version name (e.g. "v1.0") */
+  name: string;
+  /** Version description */
+  description?: string;
+  /** Release date (ISO 8601) */
+  releaseDate?: string;
+  /** Version status */
+  status: "planned" | "released" | "archived";
+}
+
+// --- Notification ---
+export type NotificationType = "assign" | "status_change" | "mention" | "due_remind";
+
+export interface Notification {
+  /** Unique ID (client-generated) */
+  id: string;
+  /** Notification type */
+  type: NotificationType;
+  /** Task room ID */
+  taskId: string;
+  /** Task title */
+  taskTitle: string;
+  /** Who triggered the notification */
+  triggeredBy: string;
+  /** When triggered (ms since epoch) */
+  triggeredAt: number;
+  /** Whether the notification has been read */
+  read: boolean;
+}
+
+// --- Notification Preferences ---
+export interface NotificationPrefs {
+  /** Notify on task assignment */
+  assignNotify: boolean;
+  /** Notify on status change */
+  statusChangeNotify: boolean;
+  /** Remind before due date */
+  dueRemind: boolean;
+  /** Notify on @mention */
+  mentionNotify: boolean;
+  /** Notification channels */
+  channels: ("in_app" | "email")[];
+}

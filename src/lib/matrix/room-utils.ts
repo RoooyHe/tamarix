@@ -1,7 +1,7 @@
 import type { Room } from "matrix-js-sdk";
 import { EventType } from "matrix-js-sdk";
-import type { Task, Project, EstimateUnit } from "./types";
-import { getStateEvent, getArchiveState } from "./state-events";
+import type { Task, Project, EstimateUnit, WorklogEntry } from "./types";
+import { getStateEvent, getArchiveState, getDescription, getWorklogs } from "./state-events";
 import { TAMARIX_EVENT_TYPES } from "./types";
 
 /**
@@ -17,16 +17,23 @@ export function roomToTask(room: Room): Task {
   const ticketIdEvent = getStateEvent<{ id: string }>(room, TAMARIX_EVENT_TYPES.TICKET_ID);
   const assigneeEvent = getStateEvent<{ user_id: string }>(room, TAMARIX_EVENT_TYPES.ASSIGNEE);
   const archiveEvent = getArchiveState(room);
+  const descriptionEvent = getDescription(room);
+  const worklogEntries = getWorklogs(room);
 
   // Get topic from m.room.topic state event
   const topicContent = room.currentState.getStateEvents(EventType.RoomTopic, "")?.getContent();
   const topic = (topicContent?.topic as string) ?? undefined;
 
+  const encrypted = isRoomEncrypted(room);
+
   return {
     roomId: room.roomId,
+    encrypted,
     ticketId: ticketIdEvent?.id,
     title: room.name || room.roomId,
     description: topic,
+    formattedDescription: descriptionEvent?.formatted_body ?? undefined,
+    worklogs: worklogEntries.length > 0 ? worklogEntries : undefined,
     status: (statusEvent?.status as Task["status"]) ?? "todo",
     priority: (priorityEvent?.level as Task["priority"]) ?? undefined,
     type: (typeEvent?.type as Task["type"]) ?? undefined,
@@ -100,6 +107,14 @@ export function getParentSpaceId(room: Room): string | undefined {
 export function isTaskRoom(room: Room): boolean {
   const statusEvent = getStateEvent(room, TAMARIX_EVENT_TYPES.TASK_STATUS);
   return statusEvent !== null;
+}
+
+/**
+ * Check if a room is encrypted (has m.room.encryption state event).
+ */
+export function isRoomEncrypted(room: Room): boolean {
+  const encryptionEvent = room.currentState.getStateEvents(EventType.RoomEncryption, "");
+  return encryptionEvent !== undefined && encryptionEvent !== null;
 }
 
 /**

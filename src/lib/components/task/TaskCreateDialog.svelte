@@ -11,6 +11,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Textarea } from "$lib/components/ui/textarea";
+  import { Switch } from "$lib/components/ui/switch";
   import { Field, FieldLabel } from "$lib/components/ui/field";
   import TaskStatusSelect from "./TaskStatusSelect.svelte";
   import PrioritySelect from "./PrioritySelect.svelte";
@@ -18,7 +19,7 @@
   import AssigneeSelect from "./AssigneeSelect.svelte";
   import type { MatrixClient } from "matrix-js-sdk";
   import type { TaskStatus, Priority, TaskType } from "$lib/matrix/types";
-  import { Plus } from "@lucide/svelte";
+  import { Plus, Lock } from "@lucide/svelte";
   import { t } from "$lib/i18n";
 
   interface Props {
@@ -31,6 +32,7 @@
       priority: Priority;
       type: TaskType;
       assignee?: string;
+      encrypted?: boolean;
     }) => Promise<void>;
     client?: MatrixClient;
     projectRoomId?: string;
@@ -44,6 +46,7 @@
   let priority: Priority = $state("medium");
   let type: TaskType = $state("task");
   let assignee: string | undefined = $state(undefined);
+  let encrypted = $state(false);
   let isSubmitting = $state(false);
 
   async function handleSubmit(e: SubmitEvent) {
@@ -58,7 +61,8 @@
         status,
         priority,
         type,
-        assignee
+        assignee,
+        encrypted
       });
       // Reset form
       name = "";
@@ -129,6 +133,14 @@
           />
         </Field>
       {/if}
+
+      <div class="flex items-center gap-2">
+        <Switch bind:checked={encrypted} id="task-encrypted" />
+        <label for="task-encrypted" class="flex items-center gap-1 text-sm text-muted-foreground cursor-pointer">
+          <Lock class="h-3.5 w-3.5" />
+          {t("encrypt.task_option")}
+        </label>
+      </div>
 
       <DialogFooter>
         <Button type="button" variant="outline" onclick={() => handleOpenChange(false)}>

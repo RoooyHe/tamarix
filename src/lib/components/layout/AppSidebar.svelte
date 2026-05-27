@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   import {
     Sidebar,
     SidebarContent,
@@ -16,8 +16,9 @@
   import { Button } from "$lib/components/ui/button";
   import MatrixAvatar from "$lib/components/common/MatrixAvatar.svelte";
   import { getAuthContext } from "$lib/stores/auth.svelte";
-  import { getProjectsContext } from "$lib/stores/projects.svelte";
-  import { Plus, FolderKanban, LogOut } from "@lucide/svelte";
+  import { getProjectsContext, type ProjectTemplate } from "$lib/stores/projects.svelte";
+  import { Switch } from "$lib/components/ui/switch";
+  import { Plus, FolderKanban, LogOut, Lock } from "@lucide/svelte";
   import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
@@ -25,11 +26,21 @@
 
   let showCreateProject = $state(false);
   let newProjectName = $state("");
+  let projectTemplate = $state<ProjectTemplate>("basic");
+  let projectEncrypted = $state(false);
+
+  const templateOptions: { value: ProjectTemplate; labelKey: string }[] = [
+    { value: "basic", labelKey: "project.template.basic" },
+    { value: "kanban", labelKey: "project.template.kanban" },
+    { value: "scrum", labelKey: "project.template.scrum" }
+  ];
 
   async function handleCreateProject() {
     if (!newProjectName.trim() || !auth.client) return;
-    await projects.createProject(auth.client, newProjectName.trim());
+    await projects.createProject(auth.client, newProjectName.trim(), undefined, projectTemplate, projectEncrypted);
     newProjectName = "";
+    projectTemplate = "basic";
+    projectEncrypted = false;
     showCreateProject = false;
   }
 </script>
@@ -60,7 +71,7 @@
       </SidebarGroupLabel>
 
       {#if showCreateProject}
-        <div class="px-2 pb-2">
+        <div class="px-2 pb-2 space-y-2">
           <form onsubmit={(e) => { e.preventDefault(); handleCreateProject(); }} class="flex gap-1">
             <input
               bind:value={newProjectName}
@@ -69,6 +80,27 @@
             />
             <Button type="submit" size="sm" class="h-7 text-xs">{t("common.create")}</Button>
           </form>
+          <div>
+            <div class="text-[10px] text-muted-foreground mb-1">{t("project.template")}</div>
+            <div class="flex gap-1">
+              {#each templateOptions as opt}
+                <button
+                  type="button"
+                  class="flex-1 rounded-md border px-1.5 py-1 text-[10px] transition-colors {projectTemplate === opt.value ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/50'}"
+                  onclick={() => projectTemplate = opt.value}
+                >
+                  {t(opt.labelKey)}
+                </button>
+              {/each}
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <Switch bind:checked={projectEncrypted} id="project-encrypted" />
+            <label for="project-encrypted" class="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+              <Lock class="h-3 w-3" />
+              {t('encrypt.label')}
+            </label>
+          </div>
         </div>
       {/if}
 

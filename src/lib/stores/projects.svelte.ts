@@ -1,12 +1,26 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
-import { Preset, RoomCreateTypeField, RoomType } from "matrix-js-sdk";
+import { Preset, RoomCreateTypeField, RoomType, EventType } from "matrix-js-sdk";
 import type { Project } from "$lib/matrix/types";
 import { roomToProject, isSpaceRoom } from "$lib/matrix/room-utils";
 import { onSyncUpdate } from "$lib/matrix/client";
 import { t } from "$lib/i18n";
 
 const PROJECTS_CONTEXT_KEY = "tamarix:projects";
+
+export type ProjectTemplate = "basic" | "kanban" | "scrum";
+
+const TEMPLATE_ROOMS: Record<string, string[]> = {
+  kanban: ["Backlog", "Selected", "In Progress", "Done"],
+  scrum: ["Todo", "In Progress", "Review", "Done"]
+};
+
+/** m.room.encryption initial_state entry for E2EE rooms */
+const ENCRYPTION_EVENT = {
+  type: EventType.RoomEncryption,
+  state_key: "",
+  content: { algorithm: "m.megolm.v1.aes-sha2" }
+} as const;
 
 function createProjectsState() {
   let projects = $state<Project[]>([]);
@@ -49,7 +63,9 @@ function createProjectsState() {
   async function createProject(
     client: MatrixClient,
     name: string,
-    description?: string
+    description?: string,
+    template: ProjectTemplate = "basic",
+    encrypted?: boolean
   ) {
     isLoading = true;
     error = null;
@@ -61,11 +77,41 @@ function createProjectsState() {
         creation_content: {
           [RoomCreateTypeField]: RoomType.Space
         },
-        initial_state: []
+        initial_state: encrypted
+          ? [{ type: EventType.RoomEncryption, state_key: "", content: { algorithm: "m.megolm.v1.aes-sha2" } }]
+          : []
       });
 
+      const spaceRoomId = result.room_id;
+      const domain = client.getDomain();
+
+      // Create template child rooms
+      const rooms = TEMPLATE_ROOMS[template];
+      if (rooms) {
+        for (const roomName of rooms) {
+          const initial_state: Record<string, unknown>[] = [
+            { type: EventType.SpaceParent, state_key: spaceRoomId!, content: { via: [domain!] } }
+          ];
+          if (encrypted) {
+            initial_state.push({ ...ENCRYPTION_EVENT });
+          }
+          const roomResult = await client.createRoom({
+            name: roomName,
+            preset: Preset.PrivateChat,
+            initial_state: initial_state as any
+          });
+          // Add child to space
+          await client.sendStateEvent(
+            spaceRoomId!,
+            EventType.SpaceChild,
+            { via: [domain!], order: String(rooms.indexOf(roomName)).padStart(3, "0") },
+            roomResult.room_id!
+          );
+        }
+      }
+
       fetchProjects(client);
-      return result.room_id;
+      return spaceRoomId;
     } catch (e) {
       error = e instanceof Error ? e.message : t("error.create_project");
     } finally {
@@ -77,6 +123,35 @@ function createProjectsState() {
     return projects.find(p => p.roomId === roomId);
   }
 
+  async function updateProject(
+    client: MatrixClient,
+    roomId: string,
+    options: { name?: string; topic?: string }
+  ) {
+    error = null;
+    try {
+      if (options.name) {
+        await client.setRoomName(roomId, options.name);
+      }
+      if (options.topic !== undefined) {
+        await client.setRoomTopic(roomId, options.topic);
+      }
+      fetchProjects(client);
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to update project";
+    }
+  }
+
+  async function archiveProject(client: MatrixClient, roomId: string) {
+    error = null;
+    try {
+      await client.setRoomTopic(roomId, `[archived] ${projects.find(p => p.roomId === roomId)?.description ?? ""}`);
+      fetchProjects(client);
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to archive project";
+    }
+  }
+
   return {
     get projects() { return projects; },
     get isLoading() { return isLoading; },
@@ -85,7 +160,9 @@ function createProjectsState() {
     startSyncListener,
     stopSyncListener,
     createProject,
-    getProjectById
+    getProjectById,
+    updateProject,
+    archiveProject
   };
 }
 

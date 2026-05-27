@@ -10,7 +10,7 @@
   <AppSidebar />
   <SidebarInset>
     <AppHeader />
-    <main class="flex-1 overflow-auto p-4">
+    <main class="flex-1 overflow-auto p-2 md:p-4">
       {@render children()}
     </main>
   </SidebarInset>

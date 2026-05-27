@@ -65,7 +65,7 @@ bun add marked
 | AD1 | 附件删除 UI | `src/lib/components/task/AttachmentList.svelte` | 附件项增加红色删除按钮；点击 -- AlertDialog 确认 -- `client.redactEvent()`；删除后刷新评论列表 |
 | AD2 | 附件删除 i18n | `zh.ts` + `en.ts` | attachment.delete / delete_confirm / delete_success / delete_failed |
 
-### 第二批B -- 大部分完成模块
+### 第二批B -- 已完成模块
 
 | # | 步骤 | 文件 | 说明 |
 |---|---|---|---|
@@ -93,7 +93,7 @@ bun add marked
 | FW5 | 关注 i18n | `zh.ts` + `en.ts` | watcher.watch / unwatch / watchers / watching |
 | FW6 | 关注触发通知 | `notifications.svelte.ts` | status_change 通知生成逻辑中，额外调用 `getWatchers(room)` 获取 watcher 列表，为每个 watcher（排除变更发起人自身）生成通知 |
 
-### 第二批C -- 未开始模块（全新开发）
+### 第二批C -- 已完成模块
 
 | # | 步骤 | 文件 | 说明 |
 |---|---|---|---|
@@ -104,8 +104,24 @@ bun add marked
 | B4 | 看板多选 | `KanbanCard.svelte` + `KanbanBoard.svelte` | (a) KanbanBoard 新增 Props: `selectedTaskIds`, `onToggleSelect`；(b) KanbanCard 新增 Props: `selected`, `onToggleSelect`；(c) Shift+点击触发多选；(d) 选中态 Checkbox + `ring-2 ring-primary` 高亮 |
 | B5 | 批量操作 i18n | `zh.ts` + `en.ts` | bulk.selected / status / priority / archive / add_tag / confirm（已预置） |
 | | | | **模块6: 移动端基础适配** |
-| M1 | 响应式侧边栏 | `AppSidebar.svelte` | 移动端 Sheet 抽屉式侧边栏（shadcn Sidebar 组件内置支持） | 已完成 |
+| M1 | 响应式侧边栏 | `AppSidebar.svelte` | 移动端 Sheet 抽屉式侧边栏（shadcn Sidebar 组件内置支持） |
 | M2 | 看板移动适配 | `src/lib/components/board/KanbanBoard.svelte` 修改 | (a) 移动端 (`md:` 断点 768px 以下) 看板列改为垂直堆叠，每列折叠为 Accordion；(b) 桌面端保持现有横向排列不变；(c) 可选：横向滚动 + CSS `scroll-snap-type: x mandatory` 作为替代方案 |
 | M3 | Data Table 移动适配 | `src/routes/project/[id]/+page.svelte` 修改 | (a) 移动端隐藏 Table 组件，改用卡片列表布局（复用 TaskCard 组件）；(b) 卡片列表只显示关键信息；(c) 过滤/排序面板移动端改为底部 Sheet 弹出；(d) Tailwind `md:hidden` / `hidden md:block` 切换两种布局 |
 | M4 | 任务详情移动适配 | `src/routes/project/[id]/task/[taskId]/+page.svelte` 修改 | (a) 移动端详情面板全屏显示；(b) Tabs 改为底部固定 Tab Bar；(c) 元数据区域改为可折叠 Accordion；(d) 返回按钮固定在顶部 |
 | M5 | 触控优化 | 全局 | (a) 拖拽操作：增加 `long-press` 触发（300ms touchstart 后触发 drag）；(b) 按钮/Checkbox 最小触控区域 `min-h-[44px] min-w-[44px]`；(c) 拖拽手柄在移动端显示为图标，宽度 >= 44px |
+
+### 模块7: 端到端加密 (E2EE) -- 已完成
+
+| # | 步骤 | 文件 | 说明 |
+|---|---|---|---|
+| E1 | Task 类型扩展 | `src/lib/matrix/types.ts` | `Task` 接口新增 `encrypted?: boolean` 字段 |
+| E2 | 加密状态检测 | `src/lib/matrix/room-utils.ts` | `isRoomEncrypted(room)` -- 检查 `m.room.encryption` state event；`roomToTask()` 中自动读取加密状态 |
+| E3 | 创建任务加密 | `src/lib/stores/tasks.svelte.ts` | `createTask()` 接收 `encrypted` 参数，在 `initial_state` 中条件加入 `m.room.encryption` 事件 (algorithm: `m.megolm.v1.aes-sha2`) |
+| E4 | 创建项目加密 | `src/lib/stores/projects.svelte.ts` | `createProject()` 接收 `encrypted` 参数，Space 本身不支持加密但模板子房间跟随加密设置 |
+| E5 | 任务创建 Dialog 加密开关 | `TaskCreateDialog.svelte` | 新增 Switch + Lock 图标，`encrypt.task_option` i18n |
+| E6 | 项目创建加密开关 | `AppSidebar.svelte` | 创建项目表单新增 Switch + Lock 图标，`encrypt.label` i18n |
+| E7 | 看板卡片加密标识 | `KanbanCard.svelte` | `task.encrypted` 为 true 时显示 Lock 图标 |
+| E8 | 任务详情加密标识 | `src/routes/project/[id]/task/[taskId]/+page.svelte` | header 区域显示加密 Badge |
+| E9 | 加密 i18n | `zh.ts` + `en.ts` | `encrypt.label` / `encrypt.description` / `encrypt.encrypted` / `encrypt.unencrypted` / `encrypt.task_option` / `encrypt.project_option` / `encrypt.warning_as` |
+
+> **重要说明：** Matrix Space（项目）本身不支持 E2EE，只有子房间（任务 Room）可以加密。E2EE 只保护消息流（评论、附件），state event（`com.tamarix.*`）仍然是明文。加密房间中的内容无法被 AS Bot 读取，P3 AS 增强层需考虑此限制。

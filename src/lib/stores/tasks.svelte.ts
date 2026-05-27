@@ -79,6 +79,7 @@ function createTasksState() {
       priority?: Priority;
       type?: TaskType;
       assignee?: string;
+      encrypted?: boolean;
     }
   ) {
     isLoading = true;
@@ -103,6 +104,13 @@ function createTasksState() {
               via: [domain]
             }
           },
+          ...(options.encrypted
+            ? [{
+                type: EventType.RoomEncryption,
+                state_key: "",
+                content: { algorithm: "m.megolm.v1.aes-sha2" }
+              }]
+            : []),
           {
             type: TAMARIX_EVENT_TYPES.TASK_STATUS,
             state_key: "",
@@ -191,6 +199,63 @@ function createTasksState() {
     return tasks.find(task => task.roomId === taskId || task.ticketId === taskId);
   }
 
+  // --- Bulk operations ---
+
+  async function bulkUpdateStatus(client: MatrixClient, roomIds: string[], status: TaskStatus, projectRoomId?: string) {
+    error = null;
+    try {
+      await Promise.all(
+        roomIds.map(id => client.sendStateEvent(id, TAMARIX_EVENT_TYPES.TASK_STATUS as any, { status }, ""))
+      );
+      fetchTasksFromRooms(client, projectRoomId);
+    } catch (e) {
+      error = e instanceof Error ? e.message : t("error.update_status");
+    }
+  }
+
+  async function bulkUpdatePriority(client: MatrixClient, roomIds: string[], priority: Priority, projectRoomId?: string) {
+    error = null;
+    try {
+      await Promise.all(
+        roomIds.map(id => client.sendStateEvent(id, TAMARIX_EVENT_TYPES.PRIORITY as any, { level: priority }, ""))
+      );
+      fetchTasksFromRooms(client, projectRoomId);
+    } catch (e) {
+      error = e instanceof Error ? e.message : t("error.update_status");
+    }
+  }
+
+  async function bulkArchive(client: MatrixClient, roomIds: string[], projectRoomId?: string) {
+    error = null;
+    try {
+      const { setArchive } = await import("$lib/matrix/state-events");
+      await Promise.all(
+        roomIds.map(id => setArchive(client, id, true))
+      );
+      fetchTasksFromRooms(client, projectRoomId);
+    } catch (e) {
+      error = e instanceof Error ? e.message : t("error.update_status");
+    }
+  }
+
+  async function bulkAddTag(client: MatrixClient, roomIds: string[], tag: string, projectRoomId?: string) {
+    error = null;
+    try {
+      const { setTags: setTagsEvent } = await import("$lib/matrix/state-events");
+      await Promise.all(
+        roomIds.map(async (id) => {
+          const existingTask = tasks.find(t => t.roomId === id);
+          const existingTags = existingTask?.tags ?? [];
+          const merged = [...new Set([...existingTags, tag])];
+          await setTagsEvent(client, id, merged);
+        })
+      );
+      fetchTasksFromRooms(client, projectRoomId);
+    } catch (e) {
+      error = e instanceof Error ? e.message : t("error.update_status");
+    }
+  }
+
   return {
     get tasks() { return tasks; },
     get isLoading() { return isLoading; },
@@ -200,7 +265,11 @@ function createTasksState() {
     stopSyncListener,
     createTask,
     updateTaskStatus,
-    getTaskById
+    getTaskById,
+    bulkUpdateStatus,
+    bulkUpdatePriority,
+    bulkArchive,
+    bulkAddTag
   };
 }
 

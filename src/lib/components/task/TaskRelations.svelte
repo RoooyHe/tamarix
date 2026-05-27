@@ -115,7 +115,8 @@
       {#each relations as entry (entry.targetRoom)}
         <div class="flex items-center gap-2 rounded-md border border-border p-2">
           {#if relTypeIcon[entry.relType]}
-            <svelte:component this={relTypeIcon[entry.relType]} class="h-4 w-4 text-muted-foreground shrink-0" />
+            {@const Icon = relTypeIcon[entry.relType]}
+            <Icon class="h-4 w-4 text-muted-foreground shrink-0" />
           {:else}
             <Link2 class="h-4 w-4 text-muted-foreground shrink-0" />
           {/if}

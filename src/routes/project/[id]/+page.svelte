@@ -16,12 +16,14 @@
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "$lib/components/ui/dropdown-menu";
   import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table";
-  import { Bug, Sparkles, ListTodo, Wrench, Target, Filter, ArrowUpDown, ChevronUp, ChevronDown, LayoutGrid, List, Archive, MoreHorizontal, ArchiveRestore, ChevronLeft, ChevronRight } from "@lucide/svelte";
+  import { Bug, Sparkles, ListTodo, Wrench, Target, Filter, ArrowUpDown, ChevronUp, ChevronDown, LayoutGrid, List, Archive, MoreHorizontal, ArchiveRestore, ChevronLeft, ChevronRight, Settings } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
   import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
   import { getStatusLabel, getPriorityLabel, getTypeLabel, TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/types";
   import { t } from "$lib/i18n";
+  import BulkActionBar from "$lib/components/task/BulkActionBar.svelte";
+  import { IsMobile } from "$lib/hooks/is-mobile.svelte";
   import { searchTasks } from "$lib/matrix/search";
 
   type IconComponent = Component<LucideProps>;
@@ -29,6 +31,7 @@
   let auth = getAuthContext();
   let tasks = getTasksContext();
   let projects = getProjectsContext();
+  let isMobile = new IsMobile();
 
   let projectId = $derived(decodeURIComponent($page.params.id ?? ""));
   let project = $derived(projects.getProjectById(projectId));
@@ -160,7 +163,7 @@
     tasks.updateTaskStatus(auth.client, taskId, targetStatus, projectId);
   }
 
-  async function handleCreateTask(data: { name: string; topic?: string; status: TaskStatus; priority: Priority; type: TaskType; assignee?: string }) {
+  async function handleCreateTask(data: { name: string; topic?: string; status: TaskStatus; priority: Priority; type: TaskType; assignee?: string; encrypted?: boolean }) {
     if (!auth.client) return;
     await tasks.createTask(auth.client, projectId, {
       name: data.name,
@@ -168,7 +171,8 @@
       status: data.status,
       priority: data.priority,
       type: data.type,
-      assignee: data.assignee
+      assignee: data.assignee,
+      encrypted: data.encrypted
     });
   }
 
@@ -276,22 +280,87 @@
     const match = userId.match(/^@([^:]+):/);
     return match ? match[1] : userId;
   }
+
+  // --- Bulk selection ---
+  let selectedTaskIds = $state<Set<string>>(new Set());
+
+  function toggleTaskSelect(taskId: string) {
+    const next = new Set(selectedTaskIds);
+    if (next.has(taskId)) {
+      next.delete(taskId);
+    } else {
+      next.add(taskId);
+    }
+    selectedTaskIds = next;
+  }
+
+  function clearSelection() {
+    selectedTaskIds = new Set();
+  }
+
+  function toggleSelectAllOnPage() {
+    const pageIds = paginatedTasks.map(t => t.roomId);
+    const allSelected = pageIds.every(id => selectedTaskIds.has(id));
+    if (allSelected) {
+      const next = new Set(selectedTaskIds);
+      for (const id of pageIds) next.delete(id);
+      selectedTaskIds = next;
+    } else {
+      const next = new Set(selectedTaskIds);
+      for (const id of pageIds) next.add(id);
+      selectedTaskIds = next;
+    }
+  }
+
+  async function handleBulkStatus(status: TaskStatus) {
+    if (!auth.client) return;
+    await tasks.bulkUpdateStatus(auth.client, [...selectedTaskIds], status, projectId);
+    clearSelection();
+  }
+
+  async function handleBulkPriority(priority: Priority) {
+    if (!auth.client) return;
+    await tasks.bulkUpdatePriority(auth.client, [...selectedTaskIds], priority, projectId);
+    clearSelection();
+  }
+
+  async function handleBulkArchive() {
+    if (!auth.client) return;
+    await tasks.bulkArchive(auth.client, [...selectedTaskIds], projectId);
+    clearSelection();
+  }
+
+  async function handleBulkTag(tag: string) {
+    if (!auth.client) return;
+    await tasks.bulkAddTag(auth.client, [...selectedTaskIds], tag, projectId);
+    clearSelection();
+  }
 </script>
 
-<div class="space-y-4">
+<div class="space-y-4 pb-20 md:pb-4">
   <!-- Header -->
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between {isMobile.current ? 'flex-col gap-2' : ''}">
     <div>
-      <h1 class="text-2xl font-bold text-foreground">{project?.name ?? t("breadcrumb.projects")}</h1>
+      <h1 class="{isMobile.current ? 'text-lg' : 'text-2xl'} font-bold text-foreground">{project?.name ?? t("breadcrumb.projects")}</h1>
       {#if project?.description}
         <p class="text-sm text-muted-foreground">{project.description}</p>
       {/if}
     </div>
-    <TaskCreateDialog onSubmit={handleCreateTask} client={auth.client ?? undefined} projectRoomId={projectId} />
+    <div class="flex items-center gap-2 {isMobile.current ? 'w-full' : ''}">
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={() => goto(`/project/${encodeURIComponent(projectId)}/settings`)}
+      >
+        <Settings class="mr-1 h-4 w-4" />
+        {t("project.settings")}
+      </Button>
+      <TaskCreateDialog onSubmit={handleCreateTask} client={auth.client ?? undefined} projectRoomId={projectId} />
+    </div>
   </div>
 
   <!-- Toolbar: view tabs + search + filter -->
-  <div class="flex items-center gap-3">
+  <div class="flex items-center gap-3 {isMobile.current ? 'flex-wrap' : ''}">
     <Tabs bind:value={currentView}>
       <TabsList>
         <TabsTrigger value="list">
@@ -312,7 +381,7 @@
       type="search"
       placeholder={t("search.search_tasks")}
       bind:value={searchQuery}
-      class="w-56"
+      class="{isMobile.current ? 'w-full' : 'w-56'}"
     />
 
     <!-- Filter popover -->
@@ -432,16 +501,96 @@
     <!-- Kanban view -->
     <KanbanBoard
       tasks={filteredTasks}
+      {selectedTaskIds}
       onTaskClick={(t) => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(t.roomId)}`)}
       onTaskDrop={handleTaskDrop}
+      onToggleSelect={toggleTaskSelect}
     />
   {:else}
     <!-- Data Table view -->
     <div class="space-y-3">
-      <div class="rounded-lg border border-border overflow-hidden">
+      <!-- Mobile card list -->
+      <div class="space-y-2 md:hidden">
+        {#each paginatedTasks as task (task.roomId)}
+          <div
+            class="rounded-lg border border-border bg-card p-3 cursor-pointer {task.archived ? 'opacity-60' : ''} {selectedTaskIds.has(task.roomId) ? 'ring-2 ring-primary' : ''}"
+            onclick={() => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(task.roomId)}`)}
+            role="button"
+            tabindex={0}
+          >
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <button type="button" class="flex min-w-[44px] min-h-[44px] items-center justify-center" onclick={(e) => { e.stopPropagation(); toggleTaskSelect(task.roomId); }}>
+                  <Checkbox checked={selectedTaskIds.has(task.roomId)} />
+                </button>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5">
+                    {#if task.type && typeIcon[task.type]}
+                      {@const Icon = typeIcon[task.type]}
+                      <Icon class="h-4 w-4 shrink-0 text-muted-foreground" />
+                    {/if}
+                    {#if task.ticketId}
+                      <span class="font-mono text-[10px] text-muted-foreground">{task.ticketId}</span>
+                    {/if}
+                    <span class="font-medium text-foreground truncate">{task.title}</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                    <Badge variant={statusVariant[task.status] ?? "outline"} class="text-[10px]">
+                      {getStatusLabel(task.status)}
+                    </Badge>
+                    {#if task.priority}
+                      <Badge variant="outline" class="text-[10px] {priorityColorClass[task.priority] ?? ''}">
+                        {getPriorityLabel(task.priority)}
+                      </Badge>
+                    {/if}
+                    {#if task.assignee}
+                      <span class="text-[10px] text-muted-foreground">{formatSender(task.assignee)}</span>
+                    {/if}
+                    {#if task.archived}
+                      <Badge variant="outline" class="text-[10px] bg-muted/50">
+                        <Archive class="mr-0.5 h-3 w-3" />
+                        {t("common.archived")}
+                      </Badge>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  <button class="p-1 rounded hover:bg-accent" onclick={(e) => e.stopPropagation()}>
+                    <MoreHorizontal class="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {#if task.archived}
+                    <DropdownMenuItem onclick={() => toggleArchive(task, false)}>
+                      <ArchiveRestore class="mr-2 h-4 w-4" />
+                      {t("common.unarchive")}
+                    </DropdownMenuItem>
+                  {:else}
+                    <DropdownMenuItem onclick={() => toggleArchive(task, true)}>
+                      <Archive class="mr-2 h-4 w-4" />
+                      {t("common.archive")}
+                    </DropdownMenuItem>
+                  {/if}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        {/each}
+      </div>
+
+      <!-- Desktop table -->
+      <div class="rounded-lg border border-border overflow-hidden hidden md:block">
         <Table>
           <TableHeader>
             <TableRow class="bg-muted/50 hover:bg-muted/50">
+              <TableHead class="px-2 py-2 w-10">
+                <Checkbox
+                  checked={paginatedTasks.length > 0 && paginatedTasks.every(t => selectedTaskIds.has(t.roomId))}
+                  onCheckedChange={toggleSelectAllOnPage}
+                />
+              </TableHead>
               <TableHead class="px-3 py-2">
                 <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("ticketId")}>
                   {t("list.ticket_id")}
@@ -500,11 +649,14 @@
           <TableBody>
             {#each paginatedTasks as task (task.roomId)}
               <TableRow
-                class="cursor-pointer {task.archived ? 'opacity-60' : ''}"
+                class="cursor-pointer {task.archived ? 'opacity-60' : ''} {selectedTaskIds.has(task.roomId) ? 'bg-primary/5' : ''}"
                 onclick={() => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(task.roomId)}`)}
                 role="button"
                 tabindex={0}
               >
+                <TableCell class="px-2 py-2" onclick={(e) => { e.stopPropagation(); toggleTaskSelect(task.roomId); }}>
+                  <Checkbox checked={selectedTaskIds.has(task.roomId)} />
+                </TableCell>
                 <TableCell class="px-3 py-2">
                   {#if task.ticketId}
                     <span class="font-mono text-xs text-muted-foreground">{task.ticketId}</span>
@@ -579,7 +731,7 @@
 
       <!-- Pagination -->
       {#if sortedTasks.length > 0}
-        <div class="flex items-center justify-between px-1">
+        <div class="flex items-center justify-between px-1 flex-wrap gap-2">
           <div class="flex items-center gap-2 text-sm text-muted-foreground">
              <span>{t("pagination.per_page")}</span>
             <select
@@ -618,4 +770,14 @@
       {/if}
     </div>
   {/if}
+
+  <!-- Bulk Action Bar -->
+  <BulkActionBar
+    selectedCount={selectedTaskIds.size}
+    onClear={clearSelection}
+    onBulkStatus={handleBulkStatus}
+    onBulkPriority={handleBulkPriority}
+    onBulkArchive={handleBulkArchive}
+    onBulkTag={handleBulkTag}
+  />
 </div>

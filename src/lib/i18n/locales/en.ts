@@ -35,6 +35,7 @@ const en: Record<string, string> = {
   "common.unarchive": "Unarchive",
   "common.archive": "Archive",
   "common.no_results": "No results found",
+  "common.back": "Back",
 
   // --- Breadcrumb ---
   "breadcrumb.projects": "Projects",
@@ -214,6 +215,99 @@ const en: Record<string, string> = {
 
   // --- Kanban ---
   "kanban.invalid_transition": "Cannot move task to \"{{to}}\"",
+  "kanban.expand_column": "Expand",
+  "kanban.collapse_column": "Collapse",
+
+  // --- Notification ---
+  "notification.title": "Notifications",
+  "notification.empty": "No notifications",
+  "notification.mark_read": "Mark as read",
+  "notification.mark_all_read": "Mark all as read",
+  "notification.assign": "assigned a task to you",
+  "notification.status_change": "Task status changed",
+  "notification.mention": "mentioned you in a comment",
+  "notification.due_remind": "Task is due soon",
+
+  // --- Project Management ---
+  "project.settings": "Project Settings",
+  "project.settings.name": "Project Name",
+  "project.settings.description": "Project Description",
+  "project.settings.save": "Save Settings",
+  "project.settings.archive": "Archive Project",
+  "project.members": "Members",
+  "project.members.invite": "Invite Member",
+  "project.members.remove": "Remove",
+  "project.members.role": "Role",
+  "project.template": "Project Template",
+  "project.template.basic": "Basic Project",
+  "project.template.kanban": "Kanban Project",
+  "project.template.scrum": "Scrum Project",
+
+  // --- Worklog ---
+  "worklog.title": "Work Log",
+  "worklog.add": "Log Work",
+  "worklog.hours": "Hours",
+  "worklog.hours_placeholder": "Enter hours...",
+  "worklog.note": "Note",
+  "worklog.note_placeholder": "Enter note...",
+  "worklog.total": "Total Hours",
+  "worklog.estimate_vs_actual": "Estimate vs Actual",
+  "worklog.delete": "Delete Entry",
+  "worklog.no_worklogs": "No work logs yet",
+
+  // --- Bulk Operations ---
+  "bulk.select": "Select",
+  "bulk.selected": "{{n}} selected",
+  "bulk.status": "Change Status",
+  "bulk.priority": "Change Priority",
+  "bulk.archive": "Bulk Archive",
+  "bulk.add_tag": "Add Tag",
+  "bulk.confirm": "Confirm Action",
+
+  // --- Markdown Description ---
+  "markdown.edit": "Edit",
+  "markdown.preview": "Preview",
+  "markdown.toolbar.bold": "Bold",
+  "markdown.toolbar.italic": "Italic",
+  "markdown.toolbar.code": "Code",
+  "markdown.toolbar.link": "Link",
+  "markdown.toolbar.list": "List",
+
+  // --- Dashboard Enhancements ---
+  "dashboard.overdue": "Overdue Tasks",
+  "dashboard.overdue_count": "{{n}} overdue tasks",
+  "dashboard.overdue_days": "{{n}}d overdue",
+  "dashboard.team_workload": "Team Workload",
+  "dashboard.project_progress": "Project Progress",
+  "dashboard.quick_create": "Quick Create",
+  "dashboard.recently_viewed": "Recently Viewed",
+  "dashboard.completion_rate": "completion rate",
+  "dashboard.unassigned": "Unassigned",
+  "dashboard.overdue_tasks": "Overdue Tasks",
+
+  // --- Attachments Delete ---
+  "attachments.delete": "Delete",
+  "attachments.delete_confirm": "Confirm Delete Attachment",
+  "attachments.delete_desc": "This action cannot be undone. The attachment will be permanently deleted from the Matrix server.",
+
+  // --- Task Watch ---
+  "task.watch": "Watch",
+  "task.unwatch": "Unwatch",
+  "task.watchers": "Watchers",
+  "task.metadata": "Properties",
+
+  // --- Mobile ---
+  "mobile.list_summary": "{{title}} - {{status}}",
+  "mobile.comment_input_placeholder": "Write a comment...",
+
+  // --- Encryption ---
+  "encrypt.label": "End-to-End Encryption",
+  "encrypt.description": "Messages and attachments in this room will be encrypted",
+  "encrypt.encrypted": "Encrypted",
+  "encrypt.unencrypted": "Not Encrypted",
+  "encrypt.task_option": "Encrypt task room",
+  "encrypt.project_option": "Encrypt project rooms",
+  "encrypt.warning_as": "Note: Encrypted rooms cannot be read by the Application Service bot",
 };
 
 export default en;

@@ -42,6 +42,20 @@
 }
 ```
 
+### Room 创建模板（任务 -- E2EE 加密变体）
+
+与上方模板相同，但在 `initial_state` 开头追加加密事件：
+
+```json
+{
+  "type": "m.room.encryption",
+  "state_key": "",
+  "content": { "algorithm": "m.megolm.v1.aes-sha2" }
+}
+```
+
+> **注意：** E2EE 只保护消息流（评论、附件），state event（`com.tamarix.*`）仍然是明文，服务器可读。加密房间无法被 AS Bot 读取。
+
 ---
 
 ## Space 创建模板（项目）

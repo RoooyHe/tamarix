@@ -16,6 +16,7 @@
   } from "$lib/components/ui/dropdown-menu";
   import MatrixAvatar from "$lib/components/common/MatrixAvatar.svelte";
   import CommandPalette from "$lib/components/common/CommandPalette.svelte";
+  import NotificationPanel from "$lib/components/notification/NotificationPanel.svelte";
   import { getAuthContext } from "$lib/stores/auth.svelte";
   import { getProjectsContext } from "$lib/stores/projects.svelte";
   import { getTasksContext } from "$lib/stores/tasks.svelte";
@@ -96,9 +97,12 @@
   <!-- Search button (⌘K) -->
   <Button variant="outline" size="sm" class="h-7 gap-2 text-muted-foreground" onclick={openCommandPalette}>
     <Search class="h-3.5 w-3.5" />
-    <span class="text-xs">{t("search.title")}</span>
-    <kbd class="pointer-events-none ml-1 inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">⌘K</kbd>
+    <span class="text-xs hidden sm:inline">{t("search.title")}</span>
+    <kbd class="pointer-events-none ml-1 hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">⌘K</kbd>
   </Button>
+
+  <!-- Notifications -->
+  <NotificationPanel />
 
   <!-- Theme toggle -->
   <DropdownMenu>
@@ -130,7 +134,7 @@
   <!-- Language switch -->
   <DropdownMenu>
     <DropdownMenuTrigger>
-      <Button variant="ghost" size="icon" class="h-8 w-8">
+      <Button variant="ghost" size="icon" class="h-8 w-8 hidden sm:flex">
         <Globe class="h-4 w-4" />
       </Button>
     </DropdownMenuTrigger>
