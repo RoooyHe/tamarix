@@ -23,8 +23,10 @@ Tamarix maps Matrix's decentralized Room/Space model onto task management. Every
 
 - **Real-time** -- Built on the Matrix sync protocol; every change is pushed instantly
 - **Federated** -- Users on different homeservers collaborate on the same tasks
-- **End-to-end encrypted** -- Task content is protected by Matrix's E2EE
+- **End-to-end encrypted** -- Task content is protected by Matrix's E2EE (Olm/Megolm)
 - **Open protocol** -- Any Matrix client can participate; no vendor lock-in
+- **Internationalized** -- Multi-language support (i18n) out of the box
+- **Workflow validation** -- Customizable task status transitions with matrix-powered enforcement
 
 ## How It Works
 
@@ -80,13 +82,29 @@ bun run check
 bun run build && bun run preview
 ```
 
+## Project Structure
+
+```
+src/
+  lib/
+    components/       # UI components (board, task, project, dashboard, ...)
+    stores/           # Svelte 5 rune-based stores ($state / $derived)
+    matrix/           # Matrix SDK integration (auth, client, search, workflow, ...)
+    i18n/             # Internationalization
+  routes/             # SvelteKit file-based routing
+    dashboard/        # Main task board
+    project/[id]/     # Project views & settings
+    search/           # Full-text search
+    settings/         # App settings
+```
+
 ## Roadmap
 
 | Phase | Status | Highlights |
 |---|---|---|
 | P0 -- MVP | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | Login / Project list / Task CRUD / Detail / Comments |
 | P1 -- Board View | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | Kanban DnD / Command Palette / Filter & Sort / Data Table / Archive / Upload / Theme |
-| P2 -- Intelligence | ![In Progress](https://img.shields.io/badge/status-frontend_done-yellow?style=flat-square) | i18n / Ticket ID / Workflow / Search / Change History / Relations |
+| P2 -- Intelligence | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | i18n / Ticket ID / Workflow / Search / Change History / Relations / E2EE Infrastructure |
 | P3 -- Enterprise | ![Planned](https://img.shields.io/badge/status-planned-lightgrey?style=flat-square) | Charts / Reminder Bot / Git Bridge / Custom Fields |
 
 ## Contributing
