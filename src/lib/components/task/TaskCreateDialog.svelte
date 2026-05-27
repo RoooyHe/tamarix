@@ -71,6 +71,7 @@
       priority = "medium";
       type = "task";
       assignee = undefined;
+      encrypted = false;
       open = false;
     } finally {
       isSubmitting = false;
@@ -90,7 +91,7 @@
       {t("task.create")}
     </Button>
   </DialogTrigger>
-  <DialogContent class="sm:max-w-[480px]">
+  <DialogContent class="sm:max-w-[540px]">
     <DialogHeader>
       <DialogTitle>{t("task.create")}</DialogTitle>
       <DialogDescription>{t("task.create_desc")}</DialogDescription>
@@ -106,7 +107,7 @@
         <Textarea bind:value={topic} placeholder={t("task.description_placeholder")} rows={3} />
       </Field>
 
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 gap-3">
         <Field>
           <FieldLabel>{t("task.status")}</FieldLabel>
           <TaskStatusSelect bind:value={status} />
@@ -121,25 +122,28 @@
           <FieldLabel>{t("task.type")}</FieldLabel>
           <TaskTypeSelect bind:value={type} />
         </Field>
-      </div>
 
-      {#if client && projectRoomId}
         <Field>
           <FieldLabel>{t("task.assignee")}</FieldLabel>
-          <AssigneeSelect
-            {client}
-            {projectRoomId}
-            bind:value={assignee}
-          />
+          {#if client && projectRoomId}
+            <AssigneeSelect {client} {projectRoomId} bind:value={assignee} />
+          {:else}
+            <Input value="-" disabled class="text-muted-foreground" />
+          {/if}
         </Field>
-      {/if}
+      </div>
 
-      <div class="flex items-center gap-2">
-        <Switch bind:checked={encrypted} id="task-encrypted" />
-        <label for="task-encrypted" class="flex items-center gap-1 text-sm text-muted-foreground cursor-pointer">
-          <Lock class="h-3.5 w-3.5" />
-          {t("encrypt.task_option")}
-        </label>
+      <div class="rounded-md border border-border px-3 py-2.5">
+        <div class="flex items-center justify-between">
+          <label for="task-encrypted" class="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+            <Lock class="h-3.5 w-3.5 text-muted-foreground" />
+            {t("encrypt.task_option")}
+          </label>
+          <Switch bind:checked={encrypted} id="task-encrypted" />
+        </div>
+        {#if encrypted}
+          <p class="mt-1.5 text-xs text-muted-foreground">{t("encrypt.warning_as")}</p>
+        {/if}
       </div>
 
       <DialogFooter>
