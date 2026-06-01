@@ -106,6 +106,7 @@ src/
 | P1 -- Board View | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | Kanban DnD / Command Palette / Filter & Sort / Data Table / Archive / Upload / Theme |
 | P2 -- Intelligence | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | i18n / Ticket ID / Workflow / Search / Change History / Relations / E2EE Infrastructure |
 | P3 -- Enterprise | ![Planned](https://img.shields.io/badge/status-planned-lightgrey?style=flat-square) | Charts / Reminder Bot / Git Bridge / Custom Fields |
+| P4 -- Advanced | ![In Progress](https://img.shields.io/badge/status-in--progress-yellow?style=flat-square) | Chart Reports / Custom Field Renderer / Approval / Sort Order / Keyboard Shortcuts / External Links |
 
 ## Contributing
 

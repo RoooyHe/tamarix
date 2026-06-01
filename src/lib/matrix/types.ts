@@ -64,6 +64,8 @@ export interface Task {
   estimate?: { points: number; unit: "story_points" | "hours" | "days" };
   /** Tags */
   tags: string[];
+  /** Manual sort order within a status column */
+  sortOrder?: string;
   /** Assigned user Matrix ID */
   assignee?: string;
   /** Whether the task is archived */
@@ -153,8 +155,30 @@ export const TAMARIX_EVENT_TYPES = {
   TASK_ARCHIVED: "com.tamarix.task_archived",
   DESCRIPTION: "com.tamarix.description",
   WORKLOG: "com.tamarix.worklog",
+  // --- P4: Version/Release ---
   VERSION: "com.tamarix.version",
   TASK_VERSION: "com.tamarix.task_version",
+
+  // --- P4: Task Template ---
+  TASK_TEMPLATE: "com.tamarix.task_template",
+
+  // --- P4: Custom Field ---
+  CUSTOM_FIELD: "com.tamarix.custom_field",
+  CUSTOM_FIELD_VALUE: "com.tamarix.custom_field_value",
+
+  // --- P4: Approval ---
+  APPROVAL: "com.tamarix.approval",
+  APPROVAL_CONFIG: "com.tamarix.approval_config",
+
+  // --- P4: Sort Order ---
+  SORT_ORDER: "com.tamarix.sort_order",
+
+  // --- P4: External Link ---
+  EXTERNAL_LINK: "com.tamarix.external_link",
+
+  // --- P4: Git Integration ---
+  GIT_CONFIG: "com.tamarix.git_config",
+
   WATCHER: "com.tamarix.watcher",
   NOTIFICATION_PREFS: "com.tamarix.notification_prefs"
 } as const;
@@ -215,4 +239,89 @@ export interface NotificationPrefs {
   mentionNotify: boolean;
   /** Notification channels */
   channels: ("in_app" | "email")[];
+}
+
+// --- P4: Task Template ---
+export interface TaskTemplate {
+  /** Template name */
+  name: string;
+  /** Default task title */
+  defaultTitle?: string;
+  /** Default task description */
+  defaultDescription?: string;
+  /** Default status */
+  defaultStatus?: TaskStatus;
+  /** Default priority */
+  defaultPriority?: Priority;
+  /** Default task type */
+  defaultType?: TaskType;
+  /** Default tags */
+  defaultTags?: string[];
+}
+
+// --- P4: Custom Field Definition ---
+export type CustomFieldType = "text" | "number" | "select" | "date";
+
+export interface CustomFieldDefinition {
+  /** Field label */
+  label: string;
+  /** Field type */
+  type: CustomFieldType;
+  /** Options for select type */
+  options?: string[];
+  /** Whether the field is required */
+  required?: boolean;
+}
+
+// --- P4: Custom Field Value ---
+export interface CustomFieldValue {
+  /** The field value */
+  value: string | number;
+}
+
+// --- P4: Approval ---
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+export interface ApprovalState {
+  /** Current approval status */
+  status: ApprovalStatus;
+  /** Number of approvals required */
+  requiredApprovals: number;
+  /** Current number of approvals */
+  currentApprovals: number;
+}
+
+export interface ApprovalConfig {
+  /** Whether approval workflow is enforced for this project */
+  enabled: boolean;
+  /** Default approval count for new approval requests */
+  requiredApprovals: number;
+}
+
+// --- P4: External Link ---
+export interface ExternalLink {
+  /** Matrix state_key for deleting/updating the link */
+  stateKey?: string;
+  /** Link URL */
+  url: string;
+  /** Link label */
+  label: string;
+}
+
+// --- P4: Sort Order ---
+export interface SortOrderState {
+  /** Lexicographic fractional index */
+  order: string;
+}
+
+// --- P4: Git Integration ---
+export type GitProvider = "github" | "gitlab";
+
+export interface GitConfig {
+  /** Git provider */
+  provider: GitProvider;
+  /** Repository URL */
+  repoUrl: string;
+  /** Webhook secret for signature verification */
+  webhookSecret: string;
 }

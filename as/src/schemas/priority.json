@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "level": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    }
+  },
+  "required": ["level"],
+  "additionalProperties": false
+}

@@ -16,15 +16,19 @@
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "$lib/components/ui/dropdown-menu";
   import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table";
-  import { Bug, Sparkles, ListTodo, Wrench, Target, Filter, ArrowUpDown, ChevronUp, ChevronDown, LayoutGrid, List, Archive, MoreHorizontal, ArchiveRestore, ChevronLeft, ChevronRight, Settings } from "@lucide/svelte";
+  import { Bug, Sparkles, ListTodo, Wrench, Target, Filter, ArrowUpDown, ChevronUp, ChevronDown, LayoutGrid, List, Archive, MoreHorizontal, ArchiveRestore, ChevronLeft, ChevronRight, Settings, Download, Upload, BarChart3, Milestone } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
-  import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
+  import type { Task, TaskStatus, Priority, TaskType, CustomFieldDefinition, CustomFieldValue } from "$lib/matrix/types";
   import { getStatusLabel, getPriorityLabel, getTypeLabel, TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/types";
   import { t } from "$lib/i18n";
   import BulkActionBar from "$lib/components/task/BulkActionBar.svelte";
+  import ImportDialog from "$lib/components/task/ImportDialog.svelte";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
   import { searchTasks } from "$lib/matrix/search";
+  import { exportTasksToCSV, exportTasksToJSON, downloadFile } from "$lib/utils/export";
+  import { clearAssignee, getCustomFieldDefinitions, getCustomFieldValues, setAssignee, setDueDate, setSortOrder, setTags } from "$lib/matrix/state-events";
+  import { computeSortAtPosition, SORT_MAX } from "$lib/utils/sort-order";
 
   type IconComponent = Component<LucideProps>;
 
@@ -36,11 +40,16 @@
   let projectId = $derived(decodeURIComponent($page.params.id ?? ""));
   let project = $derived(projects.getProjectById(projectId));
 
+  // Import dialog state
+  let importOpen = $state(false);
+  let createTaskOpen = $state(false);
+  let searchInput: HTMLInputElement | null = $state(null);
+
   // View state
   let currentView = $state<"list" | "board">("list");
 
   // Sort state
-  type SortKey = "ticketId" | "title" | "status" | "priority" | "type";
+  type SortKey = "manual" | "ticketId" | "title" | "status" | "priority" | "type";
   let sortKey = $state<SortKey>("status");
   let sortDir = $state<"asc" | "desc">("asc");
 
@@ -55,14 +64,65 @@
   let filterAssignees = $state<Set<string>>(new Set());
   let filterTags = $state<Set<string>>(new Set());
   let showArchived = $state(false);
+  let tableDragTaskId = $state<string | null>(null);
+  let customFieldDefs = $state<Map<string, CustomFieldDefinition>>(new Map());
+  let customFieldValuesByTask = $state<Map<string, Map<string, CustomFieldValue>>>(new Map());
+  let visibleCustomFields = $state<Set<string>>(new Set());
 
   onMount(() => {
     if (auth.client) {
       tasks.fetchTasksFromRooms(auth.client, projectId);
     }
+
+    const handleShortcut = (event: Event) => {
+      const detail = (event as CustomEvent<{ action: string; status?: TaskStatus }>).detail;
+      if (!detail) return;
+
+      if (detail.action === "new_task") {
+        createTaskOpen = true;
+      } else if (detail.action === "focus_search") {
+        searchInput?.focus();
+      } else if (detail.action === "edit") {
+        const firstSelected = [...selectedTaskIds][0];
+        if (firstSelected) {
+          goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(firstSelected)}`);
+        }
+      } else if (detail.action === "set_status" && detail.status && selectedTaskIds.size > 0) {
+        void handleBulkStatus(detail.status);
+      } else if (detail.action === "toggle_tag" && selectedTaskIds.size > 0) {
+        void handleShortcutTag();
+      } else if (detail.action === "assign" && selectedTaskIds.size > 0) {
+        void handleShortcutAssign();
+      } else if (detail.action === "due_date" && selectedTaskIds.size > 0) {
+        void handleShortcutDueDate();
+      }
+    };
+
+    window.addEventListener("tamarix:shortcut", handleShortcut);
+    return () => window.removeEventListener("tamarix:shortcut", handleShortcut);
   });
 
   let projectTasks = $derived(tasks.tasks);
+
+  $effect(() => {
+    if (!auth.client || !projectId) return;
+
+    const projectRoom = auth.client.getRoom(projectId);
+    if (projectRoom) {
+      const defs = getCustomFieldDefinitions(projectRoom);
+      customFieldDefs = defs;
+      if (visibleCustomFields.size === 0 && defs.size > 0) {
+        visibleCustomFields = new Set(defs.keys());
+      }
+    }
+
+    const values = new Map<string, Map<string, CustomFieldValue>>();
+    for (const task of projectTasks) {
+      const room = auth.client.getRoom(task.roomId);
+      if (room) values.set(task.roomId, getCustomFieldValues(room));
+    }
+    customFieldValuesByTask = values;
+  });
 
   // Filtered tasks
   let filteredTasks = $derived.by(() => {
@@ -70,7 +130,7 @@
 
     // Search filter (supports structured syntax: status:done priority:high keyword)
     if (searchQuery.trim()) {
-      result = searchTasks(result, searchQuery);
+      result = searchTasks(result, searchQuery, auth.client ?? undefined);
     }
 
     // Priority filter
@@ -112,6 +172,9 @@
       let cmp = 0;
 
       switch (sortKey) {
+        case "manual":
+          cmp = (a.sortOrder ?? SORT_MAX).localeCompare(b.sortOrder ?? SORT_MAX);
+          break;
         case "ticketId":
           cmp = (a.ticketId ?? "").localeCompare(b.ticketId ?? "");
           break;
@@ -163,17 +226,59 @@
     tasks.updateTaskStatus(auth.client, taskId, targetStatus, projectId);
   }
 
-  async function handleCreateTask(data: { name: string; topic?: string; status: TaskStatus; priority: Priority; type: TaskType; assignee?: string; encrypted?: boolean }) {
+  async function handleTaskReorder(taskId: string, status: TaskStatus, newIndex: number) {
     if (!auth.client) return;
-    await tasks.createTask(auth.client, projectId, {
+    const columnTasks = filteredTasks
+      .filter(task => task.status === status && task.roomId !== taskId)
+      .sort((a, b) => (a.sortOrder ?? SORT_MAX).localeCompare(b.sortOrder ?? SORT_MAX));
+    const orderMap = new Map(columnTasks.map(task => [task.roomId, task.sortOrder ?? SORT_MAX]));
+    const nextOrder = computeSortAtPosition(columnTasks, Math.min(newIndex, columnTasks.length), orderMap);
+    await setSortOrder(auth.client, taskId, nextOrder);
+    tasks.fetchTasksFromRooms(auth.client, projectId);
+  }
+
+  async function handleTableDrop(newIndex: number) {
+    if (!auth.client || !tableDragTaskId) return;
+    const moving = sortedTasks.find(task => task.roomId === tableDragTaskId);
+    if (!moving) return;
+    const items = sortedTasks.filter(task => task.roomId !== tableDragTaskId);
+    const orderMap = new Map(items.map(task => [task.roomId, task.sortOrder ?? SORT_MAX]));
+    const nextOrder = computeSortAtPosition(items, Math.min(newIndex, items.length), orderMap);
+    await setSortOrder(auth.client, tableDragTaskId, nextOrder);
+    tableDragTaskId = null;
+    sortKey = "manual";
+    sortDir = "asc";
+    tasks.fetchTasksFromRooms(auth.client, projectId);
+  }
+
+  async function handleCreateTask(data: { name: string; topic?: string; status: TaskStatus; priority: Priority; type: TaskType; assignee?: string; tags?: string[]; encrypted?: boolean }) {
+    if (!auth.client) return;
+    return await tasks.createTask(auth.client, projectId, {
       name: data.name,
       topic: data.topic,
       status: data.status,
       priority: data.priority,
       type: data.type,
       assignee: data.assignee,
+      tags: data.tags,
       encrypted: data.encrypted
     });
+  }
+
+  function handleExportCSV() {
+    const csv = exportTasksToCSV(filteredTasks);
+    downloadFile(csv, `${project?.name ?? "tasks"}.csv`, "text/csv");
+  }
+
+  function handleExportJSON() {
+    const json = exportTasksToJSON(filteredTasks);
+    downloadFile(json, `${project?.name ?? "tasks"}.json`, "application/json");
+  }
+
+  function handleImportComplete() {
+    if (auth.client) {
+      tasks.fetchTasksFromRooms(auth.client, projectId);
+    }
   }
 
   function togglePriorityFilter(p: Priority) {
@@ -214,6 +319,21 @@
       next.add(tag);
     }
     filterTags = next;
+  }
+
+  function toggleCustomColumn(fieldName: string) {
+    const next = new Set(visibleCustomFields);
+    if (next.has(fieldName)) {
+      next.delete(fieldName);
+    } else {
+      next.add(fieldName);
+    }
+    visibleCustomFields = next;
+  }
+
+  function getCustomFieldDisplayValue(taskId: string, fieldName: string): string {
+    const value = customFieldValuesByTask.get(taskId)?.get(fieldName)?.value;
+    return value === undefined || value === null ? "" : String(value);
   }
 
   async function toggleArchive(task: Task, archived: boolean) {
@@ -324,6 +444,17 @@
     clearSelection();
   }
 
+  async function handleImportTask(data: { name: string; status?: TaskStatus; priority?: Priority; type?: TaskType; assignee?: string; tags?: string[] }) {
+    await tasks.createTask(auth.client!, projectId, {
+      name: data.name,
+      status: data.status || "todo",
+      priority: data.priority || "medium",
+      type: data.type || "task",
+      assignee: data.assignee,
+      tags: data.tags
+    });
+  }
+
   async function handleBulkArchive() {
     if (!auth.client) return;
     await tasks.bulkArchive(auth.client, [...selectedTaskIds], projectId);
@@ -334,6 +465,40 @@
     if (!auth.client) return;
     await tasks.bulkAddTag(auth.client, [...selectedTaskIds], tag, projectId);
     clearSelection();
+  }
+
+  async function handleShortcutTag() {
+    if (!auth.client) return;
+    const tag = window.prompt(t("shortcuts.toggle_tag"));
+    if (!tag?.trim()) return;
+    const normalized = tag.trim();
+    await Promise.all([...selectedTaskIds].map(id => {
+      const task = projectTasks.find(item => item.roomId === id);
+      const existing = task?.tags ?? [];
+      const next = existing.includes(normalized)
+        ? existing.filter(item => item !== normalized)
+        : [...existing, normalized];
+      return setTags(auth.client!, id, next);
+    }));
+    tasks.fetchTasksFromRooms(auth.client, projectId);
+  }
+
+  async function handleShortcutAssign() {
+    if (!auth.client) return;
+    const userId = window.prompt(t("shortcuts.assign"));
+    if (userId === null) return;
+    await Promise.all([...selectedTaskIds].map(id =>
+      userId.trim() ? setAssignee(auth.client!, id, userId.trim()) : clearAssignee(auth.client!, id)
+    ));
+    tasks.fetchTasksFromRooms(auth.client, projectId);
+  }
+
+  async function handleShortcutDueDate() {
+    if (!auth.client) return;
+    const dueDate = window.prompt(t("shortcuts.due_date"));
+    if (!dueDate?.trim()) return;
+    await Promise.all([...selectedTaskIds].map(id => setDueDate(auth.client!, id, dueDate.trim())));
+    tasks.fetchTasksFromRooms(auth.client, projectId);
   }
 </script>
 
@@ -348,6 +513,47 @@
     </div>
     <div class="flex items-center gap-2 {isMobile.current ? 'w-full' : ''}">
       <Button
+        variant="ghost"
+        size="sm"
+        onclick={() => goto(`/project/${encodeURIComponent(projectId)}/versions`)}
+        title={t("version.title")}
+      >
+        <Milestone class="mr-1 h-4 w-4" />
+        {t("version.title")}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onclick={() => goto(`/project/${encodeURIComponent(projectId)}/reports`)}
+        title={t("reports.title")}
+      >
+        <BarChart3 class="mr-1 h-4 w-4" />
+        {t("reports.title")}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger>
+          <Button variant="outline" size="sm">
+            <Download class="mr-1 h-4 w-4" />
+            {t("export.title")}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onclick={handleExportCSV}>
+            <Download class="mr-2 h-4 w-4" />
+            {t("export.csv")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onclick={handleExportJSON}>
+            <Download class="mr-2 h-4 w-4" />
+            {t("export.json")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onclick={() => importOpen = true}>
+            <Upload class="mr-2 h-4 w-4" />
+            {t("import.title")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Button
         variant="outline"
         size="sm"
         onclick={() => goto(`/project/${encodeURIComponent(projectId)}/settings`)}
@@ -355,9 +561,17 @@
         <Settings class="mr-1 h-4 w-4" />
         {t("project.settings")}
       </Button>
-      <TaskCreateDialog onSubmit={handleCreateTask} client={auth.client ?? undefined} projectRoomId={projectId} />
+      <TaskCreateDialog bind:open={createTaskOpen} onSubmit={handleCreateTask} client={auth.client ?? undefined} projectRoomId={projectId} />
     </div>
   </div>
+
+  <ImportDialog
+    bind:open={importOpen}
+    client={auth.client ?? undefined}
+    projectRoomId={projectId}
+    onImportComplete={handleImportComplete}
+    createTask={handleImportTask}
+  />
 
   <!-- Toolbar: view tabs + search + filter -->
   <div class="flex items-center gap-3 {isMobile.current ? 'flex-wrap' : ''}">
@@ -378,10 +592,11 @@
 
     <!-- Search -->
     <Input
+      bind:ref={searchInput}
       type="search"
       placeholder={t("search.search_tasks")}
       bind:value={searchQuery}
-      class="{isMobile.current ? 'w-full' : 'w-56'}"
+      class={isMobile.current ? "w-full" : "w-56"}
     />
 
     <!-- Filter popover -->
@@ -402,7 +617,7 @@
           <div>
             <h4 class="mb-2 text-sm font-medium">{t("task.priority")}</h4>
             <div class="space-y-2">
-              {#each PRIORITY_ORDER as p}
+              {#each PRIORITY_ORDER as p (p)}
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
                   <Checkbox
                     checked={filterPriorities.has(p)}
@@ -419,7 +634,7 @@
           <div>
             <h4 class="mb-2 text-sm font-medium">{t("task.type")}</h4>
             <div class="space-y-2">
-              {#each (["bug", "feature", "task", "improvement", "epic"] as TaskType[]) as t}
+              {#each (["bug", "feature", "task", "improvement", "epic"] as TaskType[]) as t (t)}
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
                   <Checkbox
                     checked={filterTypes.has(t)}
@@ -435,7 +650,7 @@
             <div>
               <h4 class="mb-2 text-sm font-medium">{t("task.assignee")}</h4>
               <div class="space-y-2 max-h-32 overflow-y-auto">
-                {#each availableAssignees as a}
+                {#each availableAssignees as a (a)}
                   <label class="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={filterAssignees.has(a)}
@@ -452,7 +667,7 @@
             <div>
               <h4 class="mb-2 text-sm font-medium">{t("task.tags")}</h4>
               <div class="flex flex-wrap gap-2">
-                {#each availableTags as tag}
+                {#each availableTags as tag (tag)}
                   <label class="flex items-center gap-1.5 cursor-pointer">
                     <Checkbox
                       checked={filterTags.has(tag)}
@@ -483,12 +698,35 @@
         </div>
       </PopoverContent>
     </Popover>
+
+    {#if customFieldDefs.size > 0 && currentView === "list"}
+      <Popover>
+        <PopoverTrigger>
+          <Button variant="outline" size="sm">
+            {t("custom_field.title")}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent class="w-56" align="end">
+          <div class="space-y-2">
+            {#each [...customFieldDefs.entries()] as [fieldName, definition] (fieldName)}
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={visibleCustomFields.has(fieldName)}
+                  onCheckedChange={() => toggleCustomColumn(fieldName)}
+                />
+                <span>{definition.label}</span>
+              </label>
+            {/each}
+          </div>
+        </PopoverContent>
+      </Popover>
+    {/if}
   </div>
 
   <!-- Content -->
   {#if tasks.isLoading}
     <div class="space-y-2">
-      {#each Array(5) as _}
+      {#each Array(5) as _, index (index)}
         <Skeleton class="h-16 w-full" />
       {/each}
     </div>
@@ -504,6 +742,7 @@
       {selectedTaskIds}
       onTaskClick={(t) => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(t.roomId)}`)}
       onTaskDrop={handleTaskDrop}
+      onTaskReorder={handleTaskReorder}
       onToggleSelect={toggleTaskSelect}
     />
   {:else}
@@ -642,15 +881,22 @@
                 </button>
               </TableHead>
               <TableHead class="px-3 py-2">{t("list.assignee")}</TableHead>
+              {#each [...customFieldDefs.entries()].filter(([fieldName]) => visibleCustomFields.has(fieldName)) as [fieldName, definition] (fieldName)}
+                <TableHead class="px-3 py-2">{definition.label}</TableHead>
+              {/each}
               <TableHead class="px-3 py-2">{t("list.archive")}</TableHead>
               <TableHead class="px-3 py-2 w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {#each paginatedTasks as task (task.roomId)}
+            {#each paginatedTasks as task, index (task.roomId)}
               <TableRow
                 class="cursor-pointer {task.archived ? 'opacity-60' : ''} {selectedTaskIds.has(task.roomId) ? 'bg-primary/5' : ''}"
                 onclick={() => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(task.roomId)}`)}
+                draggable="true"
+                ondragstart={() => { tableDragTaskId = task.roomId; }}
+                ondragover={(event) => { event.preventDefault(); }}
+                ondrop={(event) => { event.preventDefault(); void handleTableDrop((currentPage - 1) * pageSize + index); }}
                 role="button"
                 tabindex={0}
               >
@@ -693,6 +939,11 @@
                     <span class="text-xs text-muted-foreground">{formatSender(task.assignee)}</span>
                   {/if}
                 </TableCell>
+                {#each [...customFieldDefs.keys()].filter(fieldName => visibleCustomFields.has(fieldName)) as fieldName (fieldName)}
+                  <TableCell class="px-3 py-2">
+                    <span class="text-xs text-muted-foreground">{getCustomFieldDisplayValue(task.roomId, fieldName)}</span>
+                  </TableCell>
+                {/each}
                 <TableCell class="px-3 py-2">
                   {#if task.archived}
                     <Badge variant="outline" class="text-[10px] bg-muted/50">

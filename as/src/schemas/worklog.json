@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "pattern": "^@.+:.+$",
+      "description": "Matrix user ID of the person who logged the work"
+    },
+    "hours": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Hours logged"
+    },
+    "note": {
+      "type": "string",
+      "description": "Optional note about the work"
+    },
+    "logged_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the work was logged (ISO 8601)"
+    }
+  },
+  "required": ["user_id", "hours", "logged_at"],
+  "additionalProperties": false
+}

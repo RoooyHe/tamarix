@@ -1,0 +1,15 @@
+id: "tamarix-as"
+url: "http://localhost:9000"
+as_token: "${AS_TOKEN}"
+hs_token: "${HS_TOKEN}"
+sender_localpart: "tamarix-bot"
+namespaces:
+  users:
+    - exclusive: true
+      regex: "@tamarix_.*:${HOMESERVER_DOMAIN}"
+  rooms:
+    - exclusive: false
+      regex: "!.*:${HOMESERVER_DOMAIN}"
+  aliases:
+    - exclusive: true
+      regex: "#tamarix_.*:${HOMESERVER_DOMAIN}"

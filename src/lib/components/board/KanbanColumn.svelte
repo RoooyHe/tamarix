@@ -16,14 +16,16 @@
     mobile?: boolean;
     onTaskClick?: (task: Task) => void;
     onTaskDrop?: (taskId: string, targetStatus: TaskStatus) => void;
+    onTaskReorder?: (taskId: string, status: TaskStatus, newIndex: number) => void;
     onToggleSelect?: (taskId: string) => void;
   }
 
-  let { status, tasks, selectedTaskIds, mobile = false, onTaskClick, onTaskDrop, onToggleSelect }: Props = $props();
+  let { status, tasks, selectedTaskIds, mobile = false, onTaskClick, onTaskDrop, onTaskReorder, onToggleSelect }: Props = $props();
 
   let isDragOver = $state(false);
   let invalidDropMsg = $state("");
-  let isCollapsed = $state(mobile ? true : false);
+  let isCollapsed = $state(Boolean(mobile));
+  let dropIndex = $state<number | null>(null);
 
   function handleDragOver(event: DragEvent) {
     if (!hasDragData(event)) return;
@@ -44,6 +46,7 @@
     const y = event.clientY;
     if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
       isDragOver = false;
+      dropIndex = null;
     }
   }
 
@@ -51,6 +54,11 @@
     event.preventDefault();
     isDragOver = false;
     const data = getDragData(event);
+    if (data && data.fromStatus === status && dropIndex !== null) {
+      onTaskReorder?.(data.taskId, status, dropIndex);
+      dropIndex = null;
+      return;
+    }
     if (data && data.fromStatus !== status) {
       if (canTransition(data.fromStatus, status)) {
         onTaskDrop?.(data.taskId, status);
@@ -59,6 +67,15 @@
         setTimeout(() => { invalidDropMsg = ""; }, 2000);
       }
     }
+    dropIndex = null;
+  }
+
+  function handleCardDragOver(event: DragEvent, index: number) {
+    if (!hasDragData(event)) return;
+    event.preventDefault();
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    dropIndex = event.clientY > rect.top + rect.height / 2 ? index + 1 : index;
   }
 
   function toggleCollapse() {
@@ -107,14 +124,22 @@
     <div
       class="flex-1 space-y-2 p-2 overflow-y-auto min-h-[120px] transition-colors {isDragOver ? 'bg-accent/50' : ''}"
     >
-      {#each tasks as task (task.roomId)}
-        <KanbanCard
-          {task}
-          selected={selectedTaskIds?.has(task.roomId) ?? false}
-          onClick={(t) => onTaskClick?.(t)}
-          onToggleSelect={onToggleSelect ? (id) => onToggleSelect?.(id) : undefined}
-        />
+      {#each tasks as task, index (task.roomId)}
+        {#if dropIndex === index}
+          <div class="h-1 rounded-full bg-primary"></div>
+        {/if}
+        <div role="listitem" ondragover={(event) => handleCardDragOver(event, index)}>
+          <KanbanCard
+            {task}
+            selected={selectedTaskIds?.has(task.roomId) ?? false}
+            onClick={(t) => onTaskClick?.(t)}
+            onToggleSelect={onToggleSelect ? (id) => onToggleSelect?.(id) : undefined}
+          />
+        </div>
       {/each}
+      {#if dropIndex === tasks.length}
+        <div class="h-1 rounded-full bg-primary"></div>
+      {/if}
 
       {#if tasks.length === 0 && !isDragOver}
         <div class="flex h-24 items-center justify-center rounded-md border border-dashed border-border">

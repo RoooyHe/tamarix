@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "rel_type": {
+      "type": "string",
+      "enum": ["blocks", "duplicates", "relates", "subtask_of"],
+      "description": "Relation type"
+    },
+    "target_room": {
+      "type": "string",
+      "pattern": "^!.+:.+$",
+      "description": "Target room Matrix ID"
+    }
+  },
+  "required": ["rel_type", "target_room"],
+  "additionalProperties": false
+}

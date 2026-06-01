@@ -18,8 +18,9 @@
   import { getAuthContext } from "$lib/stores/auth.svelte";
   import { getProjectsContext, type ProjectTemplate } from "$lib/stores/projects.svelte";
   import { Switch } from "$lib/components/ui/switch";
-  import { Plus, FolderKanban, LogOut, Lock } from "@lucide/svelte";
+  import { Plus, FolderKanban, LogOut, Lock, Settings, BarChart3, Milestone } from "@lucide/svelte";
   import { t } from "$lib/i18n";
+  import { page } from "$app/stores";
 
   let auth = getAuthContext();
   let projects = getProjectsContext();
@@ -28,6 +29,28 @@
   let newProjectName = $state("");
   let projectTemplate = $state<ProjectTemplate>("basic");
   let projectEncrypted = $state(false);
+
+  // Track which project sub-menus are expanded
+  let expandedProjects = $state<Set<string>>(new Set());
+
+  function toggleProjectExpand(roomId: string) {
+    const next = new Set(expandedProjects);
+    if (next.has(roomId)) {
+      next.delete(roomId);
+    } else {
+      next.add(roomId);
+    }
+    expandedProjects = next;
+  }
+
+  // Auto-expand the project that matches the current route
+  let currentProjectId = $derived.by(() => {
+    const segments = $page.url.pathname.split("/").filter(Boolean);
+    if (segments[0] === "project" && segments[1]) {
+      return decodeURIComponent(segments[1]);
+    }
+    return null;
+  });
 
   const templateOptions: { value: ProjectTemplate; labelKey: string }[] = [
     { value: "basic", labelKey: "project.template.basic" },
@@ -112,13 +135,47 @@
             <div class="px-2 py-4 text-xs text-muted-foreground">{t("project.no_projects_hint")}</div>
           {:else}
             {#each projects.projects as project}
+              {@const isExpanded = expandedProjects.has(project.roomId) || currentProjectId === project.roomId}
               <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <a href="/project/{encodeURIComponent(project.roomId)}">
-                    <FolderKanban class="h-4 w-4" />
-                    <span>{project.name}</span>
-                  </a>
+                <SidebarMenuButton
+                  isActive={currentProjectId === project.roomId}
+                  onclick={() => toggleProjectExpand(project.roomId)}
+                >
+                  <FolderKanban class="h-4 w-4" />
+                  <span>{project.name}</span>
                 </SidebarMenuButton>
+                {#if isExpanded}
+                  <div class="ml-6 mt-0.5 space-y-0.5">
+                    <a
+                      href="/project/{encodeURIComponent(project.roomId)}"
+                      class="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      <FolderKanban class="h-3 w-3" />
+                      {t("breadcrumb.tasks")}
+                    </a>
+                    <a
+                      href="/project/{encodeURIComponent(project.roomId)}/versions"
+                      class="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      <Milestone class="h-3 w-3" />
+                      {t("version.title")}
+                    </a>
+                    <a
+                      href="/project/{encodeURIComponent(project.roomId)}/reports"
+                      class="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      <BarChart3 class="h-3 w-3" />
+                      {t("reports.title")}
+                    </a>
+                    <a
+                      href="/project/{encodeURIComponent(project.roomId)}/settings"
+                      class="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      <Settings class="h-3 w-3" />
+                      {t("project.settings")}
+                    </a>
+                  </div>
+                {/if}
               </SidebarMenuItem>
             {/each}
           {/if}

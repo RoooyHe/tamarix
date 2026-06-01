@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "body": {
+      "type": "string",
+      "description": "Plain text description"
+    },
+    "format": {
+      "type": "string",
+      "enum": ["org.matrix.custom.html"],
+      "description": "Format of formatted_body"
+    },
+    "formatted_body": {
+      "type": "string",
+      "description": "HTML formatted description"
+    }
+  },
+  "required": ["body"],
+  "additionalProperties": false
+}

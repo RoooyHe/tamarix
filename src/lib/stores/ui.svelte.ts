@@ -16,13 +16,25 @@ function createUiState() {
 
   let locale = $state<Locale>(getCurrentLocale());
 
+  let searchSource = $state<"local" | "as">("local");
+
   let initialized = $state(false);
+
+  // P4: Shortcut context state
+  /** Currently focused task room ID (for task-specific shortcuts) */
+  let focusedTaskId = $state<string | null>(null);
+  /** Whether the user is currently in an input context */
+  let inInputContext = $state(false);
 
   $effect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("tamarix:theme");
       if (stored === "light" || stored === "dark" || stored === "system") {
         theme = stored;
+      }
+      const storedSearch = localStorage.getItem("tamarix:search_source");
+      if (storedSearch === "local" || storedSearch === "as") {
+        searchSource = storedSearch;
       }
       initialized = true;
     }
@@ -31,6 +43,7 @@ function createUiState() {
   $effect(() => {
     if (initialized && typeof window !== "undefined") {
       localStorage.setItem("tamarix:theme", theme);
+      localStorage.setItem("tamarix:search_source", searchSource);
     }
   });
 
@@ -83,6 +96,10 @@ function createUiState() {
     locale = newLocale;
   }
 
+  function setSearchSource(source: "local" | "as") {
+    searchSource = source;
+  }
+
   return {
     get sidebarOpen() { return sidebarOpen; },
     set sidebarOpen(value: boolean) { sidebarOpen = value; },
@@ -90,11 +107,18 @@ function createUiState() {
     get theme() { return theme; },
     get resolvedTheme() { return resolvedTheme; },
     get locale() { return locale; },
+    get searchSource() { return searchSource; },
+    set searchSource(value: "local" | "as") { searchSource = value; },
+    get focusedTaskId() { return focusedTaskId; },
+    set focusedTaskId(value: string | null) { focusedTaskId = value; },
+    get inInputContext() { return inInputContext; },
+    set inInputContext(value: boolean) { inInputContext = value; },
     toggleSidebar,
     setView,
     setTheme,
     toggleTheme,
-    setLocale
+    setLocale,
+    setSearchSource
   };
 }
 

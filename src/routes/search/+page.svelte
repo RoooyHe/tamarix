@@ -4,7 +4,9 @@
   import { goto } from "$app/navigation";
   import { getAuthContext } from "$lib/stores/auth.svelte";
   import { getTasksContext } from "$lib/stores/tasks.svelte";
-  import { searchTasks } from "$lib/matrix/search";
+  import { searchTasks, searchViaAS, type AsSearchResult } from "$lib/matrix/search";
+  import { getUiContext } from "$lib/stores/ui.svelte";
+  import { getAsStatusStore } from "$lib/stores/as-status.svelte";
   import TaskCard from "$lib/components/task/TaskCard.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { Input } from "$lib/components/ui/input";
@@ -12,13 +14,18 @@
   import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
   import { getStatusLabel, getPriorityLabel, getTypeLabel, TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/types";
   import { t } from "$lib/i18n";
-  import { Search, X } from "@lucide/svelte";
+  import { Search, X, Database, Server } from "@lucide/svelte";
 
   let auth = getAuthContext();
   let tasks = getTasksContext();
+  let ui = getUiContext();
+  let asStatus = getAsStatusStore();
 
   let searchQuery = $state("");
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  let asSearching = $state(false);
+  let asResults = $state<AsSearchResult[]>([]);
+  let asResultCount = $state(0);
 
   onMount(() => {
     if (auth.client) {
@@ -26,8 +33,74 @@
     }
   });
 
-  // Search results with debounce
-  let results = $derived(searchTasks(tasks.tasks, searchQuery));
+  // Effective search source: if user chose AS but AS is unavailable, fall back to local
+  let effectiveSource = $derived(
+    ui.searchSource === "as" && asStatus.asAvailable ? "as" : "local"
+  );
+
+  // Local search results (always computed for fallback)
+  let localResults = $derived(searchTasks(tasks.tasks, searchQuery, auth.client ?? undefined));
+
+  // AS search with debounce
+  let asSearchQuery = $state("");
+  $effect(() => {
+    if (effectiveSource !== "as") return;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      asSearchQuery = searchQuery;
+    }, 300);
+    return () => clearTimeout(debounceTimer);
+  });
+
+  $effect(() => {
+    if (effectiveSource !== "as" || !asSearchQuery.trim()) {
+      asResults = [];
+      asResultCount = 0;
+      return;
+    }
+    asSearching = true;
+    searchViaAS(asSearchQuery, asStatus.asUrl)
+      .then(res => {
+        if (res) {
+          asResults = res.results;
+          asResultCount = res.count;
+        } else {
+          asResults = [];
+          asResultCount = 0;
+        }
+      })
+      .catch(() => {
+        asResults = [];
+        asResultCount = 0;
+      })
+      .finally(() => {
+        asSearching = false;
+      });
+  });
+
+  // Map AS results to Task-like objects for TaskCard rendering
+  let asTaskResults = $derived(
+    asResults.map(r => ({
+      roomId: r.room_id,
+      projectRoomId: r.project_room_id,
+      title: r.title ?? "",
+      status: r.status as TaskStatus,
+      priority: r.priority as Priority | undefined,
+      type: r.task_type as TaskType | undefined,
+      assignee: r.assignee ?? undefined,
+      dueDate: r.due_date ?? undefined,
+      ticketId: r.ticket_id ?? undefined,
+      encrypted: !!r.encrypted,
+      archived: !!r.archived,
+      description: undefined as string | undefined,
+      tags: [] as string[],
+      createdAt: 0,
+      updatedAt: 0,
+    })) as Task[]
+  );
+
+  // Current results based on effective source
+  let results = $derived(effectiveSource === "as" ? asTaskResults : localResults);
 
   // Metadata filter chips
   let filterStatus = $state<Set<TaskStatus>>(new Set());
@@ -90,6 +163,30 @@
     <h1 class="text-2xl font-bold text-foreground">{t("search.title")}</h1>
   </div>
 
+  <!-- Search source toggle -->
+  <div class="flex items-center gap-2">
+    <Button
+      variant={effectiveSource === "local" ? "default" : "outline"}
+      size="sm"
+      onclick={() => ui.searchSource = "local"}
+    >
+      <Database class="mr-1 h-3.5 w-3.5" />
+      {t("as.search_local")}
+    </Button>
+    <Button
+      variant={effectiveSource === "as" ? "default" : "outline"}
+      size="sm"
+      onclick={() => ui.searchSource = "as"}
+      disabled={!asStatus.asAvailable}
+    >
+      <Server class="mr-1 h-3.5 w-3.5" />
+      {t("as.search_as")}
+      {#if ui.searchSource === "as" && !asStatus.asAvailable}
+        <span class="ml-1 text-xs opacity-60">({t("as.status_offline")})</span>
+      {/if}
+    </Button>
+  </div>
+
   <!-- Search input -->
   <div class="relative">
     <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -108,6 +205,13 @@
     {/if}
   </div>
   <p class="text-xs text-muted-foreground">{t("search.syntax_hint")}</p>
+
+  <!-- AS search loading indicator -->
+  {#if effectiveSource === "as" && asSearching}
+    <div class="text-xs text-muted-foreground animate-pulse">
+      {t("as.search_as")}...
+    </div>
+  {/if}
 
   <!-- Metadata filter chips -->
   <div class="space-y-2">

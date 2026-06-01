@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "assign_notify": {
+      "type": "boolean",
+      "description": "Notify on task assignment"
+    },
+    "status_change_notify": {
+      "type": "boolean",
+      "description": "Notify on status change"
+    },
+    "due_remind": {
+      "type": "boolean",
+      "description": "Remind before due date"
+    },
+    "mention_notify": {
+      "type": "boolean",
+      "description": "Notify on @mention"
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["in_app", "email", "matrix"]
+      },
+      "description": "Notification channels"
+    }
+  },
+  "required": ["assign_notify", "status_change_notify", "due_remind", "mention_notify", "channels"],
+  "additionalProperties": false
+}

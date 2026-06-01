@@ -6,6 +6,7 @@ import { roomToTask, isTaskRoom } from "$lib/matrix/room-utils";
 import { TAMARIX_EVENT_TYPES, getStatusLabel } from "$lib/matrix/types";
 import { generateNextTicketId } from "$lib/matrix/ticket-id";
 import { canTransition } from "$lib/matrix/workflow";
+import { getApproval, getApprovalConfig } from "$lib/matrix/state-events";
 import { onSyncUpdate } from "$lib/matrix/client";
 import { t } from "$lib/i18n";
 
@@ -69,6 +70,27 @@ function createTasksState() {
     }
   }
 
+  function isApprovalBlocked(
+    client: MatrixClient,
+    roomId: string,
+    from: TaskStatus,
+    to: TaskStatus,
+    projectRoomId?: string
+  ): boolean {
+    if (!projectRoomId) return false;
+    if (!["todo", "in_progress"].includes(from)) return false;
+    if (!["review", "done"].includes(to)) return false;
+
+    const projectRoom = client.getRoom(projectRoomId);
+    if (!projectRoom) return false;
+    const config = getApprovalConfig(projectRoom);
+    if (!config.enabled) return false;
+
+    const taskRoom = client.getRoom(roomId);
+    if (!taskRoom) return true;
+    return getApproval(taskRoom)?.status !== "approved";
+  }
+
   async function createTask(
     client: MatrixClient,
     projectRoomId: string,
@@ -79,6 +101,7 @@ function createTasksState() {
       priority?: Priority;
       type?: TaskType;
       assignee?: string;
+      tags?: string[];
       encrypted?: boolean;
     }
   ) {
@@ -141,6 +164,13 @@ function createTasksState() {
                 state_key: "",
                 content: { user_id: options.assignee }
               }]
+            : []),
+          ...(options.tags?.length
+            ? [{
+                type: TAMARIX_EVENT_TYPES.TAGS,
+                state_key: "",
+                content: { tags: options.tags }
+              }]
             : [])
         ]
       });
@@ -181,6 +211,10 @@ function createTasksState() {
         error = t("error.invalid_transition", { from: getStatusLabel(currentTask.status), to: getStatusLabel(status) });
         return;
       }
+      if (currentTask && isApprovalBlocked(client, roomId, currentTask.status, status, projectRoomId)) {
+        error = t("error.approval_required");
+        return;
+      }
 
       await client.sendStateEvent(
         roomId,
@@ -204,6 +238,14 @@ function createTasksState() {
   async function bulkUpdateStatus(client: MatrixClient, roomIds: string[], status: TaskStatus, projectRoomId?: string) {
     error = null;
     try {
+      const blocked = roomIds.some(id => {
+        const currentTask = tasks.find(task => task.roomId === id);
+        return currentTask ? isApprovalBlocked(client, id, currentTask.status, status, projectRoomId) : false;
+      });
+      if (blocked) {
+        error = t("error.approval_required");
+        return;
+      }
       await Promise.all(
         roomIds.map(id => client.sendStateEvent(id, TAMARIX_EVENT_TYPES.TASK_STATUS as any, { status }, ""))
       );

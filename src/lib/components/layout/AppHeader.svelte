@@ -25,10 +25,12 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { getUiContext } from "$lib/stores/ui.svelte";
+  import { getAsStatusStore } from "$lib/stores/as-status.svelte";
   import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
   let ui = getUiContext();
+  let asStatus = getAsStatusStore();
   let projects = getProjectsContext();
   let tasks = getTasksContext();
 
@@ -103,6 +105,13 @@
 
   <!-- Notifications -->
   <NotificationPanel />
+
+  <!-- AS Status indicator -->
+  {#if asStatus.asUrl}
+    <div class="flex items-center gap-1" title={asStatus.asAvailable ? t("as.status_online") : t("as.status_offline")}>
+      <span class="h-2 w-2 rounded-full {asStatus.asAvailable ? 'bg-green-500' : 'bg-red-500'}"></span>
+    </div>
+  {/if}
 
   <!-- Theme toggle -->
   <DropdownMenu>

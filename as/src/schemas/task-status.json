@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["todo", "in_progress", "review", "done", "closed"]
+    }
+  },
+  "required": ["status"],
+  "additionalProperties": false
+}

@@ -14,6 +14,7 @@ export function roomToTask(room: Room): Task {
   const dueDateEvent = getStateEvent<{ date: string }>(room, TAMARIX_EVENT_TYPES.DUE_DATE);
   const estimateEvent = getStateEvent<{ points: number; unit: string }>(room, TAMARIX_EVENT_TYPES.ESTIMATE);
   const tagsEvent = getStateEvent<{ tags: string[] }>(room, TAMARIX_EVENT_TYPES.TAGS);
+  const sortOrderEvent = getStateEvent<{ order: string }>(room, TAMARIX_EVENT_TYPES.SORT_ORDER);
   const ticketIdEvent = getStateEvent<{ id: string }>(room, TAMARIX_EVENT_TYPES.TICKET_ID);
   const assigneeEvent = getStateEvent<{ user_id: string }>(room, TAMARIX_EVENT_TYPES.ASSIGNEE);
   const archiveEvent = getArchiveState(room);
@@ -42,6 +43,7 @@ export function roomToTask(room: Room): Task {
       ? { points: estimateEvent.points, unit: estimateEvent.unit as EstimateUnit }
       : undefined,
     tags: tagsEvent?.tags ?? [],
+    sortOrder: sortOrderEvent?.order,
     assignee: assigneeEvent?.user_id,
     archived: archiveEvent?.archived ?? false,
     archivedBy: archiveEvent?.archived_by,

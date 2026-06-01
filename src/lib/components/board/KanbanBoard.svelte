@@ -2,18 +2,19 @@
   import type { Task, TaskStatus } from "$lib/matrix/types";
   import { TASK_STATUS_ORDER } from "$lib/matrix/types";
   import KanbanColumn from "./KanbanColumn.svelte";
-  import { t } from "$lib/i18n";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
+  import { sortByOrder } from "$lib/utils/sort-order";
 
   interface Props {
     tasks: Task[];
     selectedTaskIds?: Set<string>;
     onTaskClick?: (task: Task) => void;
     onTaskDrop?: (taskId: string, targetStatus: TaskStatus) => void;
+    onTaskReorder?: (taskId: string, status: TaskStatus, newIndex: number) => void;
     onToggleSelect?: (taskId: string) => void;
   }
 
-  let { tasks, selectedTaskIds, onTaskClick, onTaskDrop, onToggleSelect }: Props = $props();
+  let { tasks, selectedTaskIds, onTaskClick, onTaskDrop, onTaskReorder, onToggleSelect }: Props = $props();
 
   let isMobile = new IsMobile();
 
@@ -25,6 +26,10 @@
     for (const task of tasks) {
       const list = map.get(task.status);
       if (list) list.push(task);
+    }
+    const orderMap = new Map(tasks.map(task => [task.roomId, task.sortOrder ?? "zzzzzz"]));
+    for (const [status, list] of map) {
+      map.set(status, sortByOrder(list, orderMap));
     }
     return map;
   });
@@ -39,6 +44,7 @@
       mobile={isMobile.current}
       onTaskClick={(t) => onTaskClick?.(t)}
       onTaskDrop={(taskId, targetStatus) => onTaskDrop?.(taskId, targetStatus)}
+      onTaskReorder={(taskId, targetStatus, newIndex) => onTaskReorder?.(taskId, targetStatus, newIndex)}
       onToggleSelect={onToggleSelect ? (id) => onToggleSelect?.(id) : undefined}
     />
   {/each}

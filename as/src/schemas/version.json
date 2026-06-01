@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Version name (e.g. v1.0)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["planned", "released", "archived"],
+      "description": "Version status"
+    },
+    "release_date": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Release date (ISO 8601)"
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Version description"
+    }
+  },
+  "required": ["name", "status"],
+  "additionalProperties": false
+}
