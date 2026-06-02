@@ -177,8 +177,12 @@ export async function restoreSession(): Promise<string | null> {
   }
 
   try {
-    initClient({ baseUrl, accessToken, userId, deviceId: deviceId ?? undefined });
-    await startClient();
+    const client = initClient({ baseUrl, accessToken, userId, deviceId: deviceId ?? undefined });
+    const session = await client.whoami();
+    if (session.user_id !== userId) {
+      throw new Error("Stored Matrix session user mismatch");
+    }
+    void startClient({ waitForSync: false }).catch(() => undefined);
     return userId;
   } catch {
     // Session is invalid, clear it

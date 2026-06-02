@@ -49,6 +49,7 @@ export function initClient({
 
 interface StartClientOptions {
   timeoutMs?: number;
+  waitForSync?: boolean;
 }
 
 function createSyncFilter(client: MatrixClient): Filter {
@@ -60,6 +61,17 @@ function createSyncFilter(client: MatrixClient): Filter {
   return filter;
 }
 
+function getSyncOptions(client: MatrixClient) {
+  return {
+    initialSyncLimit: INITIAL_SYNC_LIMIT,
+    includeArchivedRooms: false,
+    filter: createSyncFilter(client),
+    lazyLoadMembers: true,
+    threadSupport: true,
+    disablePresence: true
+  };
+}
+
 /**
  * Start the client sync loop with V3-compliant options.
  * Resolves when the client reaches an initial usable sync state.
@@ -67,6 +79,12 @@ function createSyncFilter(client: MatrixClient): Filter {
 export async function startClient(options: StartClientOptions = {}): Promise<void> {
   const c = getClient();
   const timeoutMs = options.timeoutMs ?? START_CLIENT_TIMEOUT_MS;
+  const waitForSync = options.waitForSync ?? true;
+
+  if (!waitForSync) {
+    c.startClient(getSyncOptions(c));
+    return;
+  }
   
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -101,14 +119,7 @@ export async function startClient(options: StartClientOptions = {}): Promise<voi
     }, timeoutMs);
     
     c.on(ClientEvent.Sync, onSync);
-    c.startClient({
-      initialSyncLimit: INITIAL_SYNC_LIMIT,
-      includeArchivedRooms: false,
-      filter: createSyncFilter(c),
-      lazyLoadMembers: true,
-      threadSupport: true,
-      disablePresence: true
-    });
+    c.startClient(getSyncOptions(c));
   });
 }
 
