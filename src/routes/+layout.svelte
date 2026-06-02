@@ -12,7 +12,7 @@
   import AppShell from "$lib/components/layout/AppShell.svelte";
   import KeyboardShortcuts from "$lib/components/common/KeyboardShortcuts.svelte";
   import CommandPalette from "$lib/components/common/CommandPalette.svelte";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { initLocale, t } from "$lib/i18n";
@@ -52,16 +52,21 @@
 
   // Watch for login state changes to load data, start sync listeners, and redirect
   $effect(() => {
-    if (auth.isLoggedIn && auth.client) {
-      projects.fetchProjects(auth.client);
-      projects.startSyncListener(auth.client);
-      notifications.startSyncListener(auth.client);
-      notifications.startDueCheckTimer(auth.client, () => tasks.tasks);
-    } else {
-      projects.stopSyncListener();
-      notifications.stopSyncListener();
-      notifications.stopDueCheckTimer();
-    }
+    const isLoggedIn = auth.isLoggedIn;
+    const client = auth.client;
+
+    untrack(() => {
+      if (isLoggedIn && client) {
+        projects.fetchProjects(client);
+        projects.startSyncListener(client);
+        notifications.startSyncListener(client);
+        notifications.startDueCheckTimer(client, () => tasks.tasks);
+      } else {
+        projects.stopSyncListener();
+        notifications.stopSyncListener();
+        notifications.stopDueCheckTimer();
+      }
+    });
   });
 
   // P4: Global keyboard shortcuts listener
