@@ -1,19 +1,38 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { getAuthContext } from "$lib/stores/auth.svelte";
+  import { getAccountStore } from "$lib/stores/account.svelte";
   import { getAsStatusStore } from "$lib/stores/as-status.svelte";
+  import { getIntegrationsStore } from "$lib/stores/integrations.svelte";
   import { getUiContext } from "$lib/stores/ui.svelte";
+  import { Alert, AlertDescription } from "$lib/components/ui/alert";
+  import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Separator } from "$lib/components/ui/separator";
-  import { LogOut, Settings, Sun, Moon, Monitor, Globe } from "@lucide/svelte";
+  import { Link, LogOut, Monitor, Moon, Plug, Shield, Sun, Trash2, Globe } from "@lucide/svelte";
   import { t } from "$lib/i18n";
+  import type { IntegrationProvider } from "$lib/integrations/types";
 
   let auth = getAuthContext();
+  let account = getAccountStore();
   let ui = getUiContext();
   let asStatus = getAsStatusStore();
+  let integrations = getIntegrationsStore();
 
   let asUrlInput = $state(asStatus.asUrl);
   let healthCheckResult = $state<"ok" | "failed" | null>(null);
+  let emailInput = $state("");
+  let emailNotice = $state<string | null>(null);
+
+  onMount(() => {
+    if (auth.client) {
+      void account.loadThreePids(auth.client);
+    }
+    if (asStatus.asUrl) {
+      void integrations.loadConnections(asStatus.asUrl);
+    }
+  });
 
   async function checkAsHealth() {
     const ok = await asStatus.checkHealth();
@@ -23,6 +42,36 @@
 
   function saveAsUrl() {
     asStatus.setAsUrl(asUrlInput);
+    void integrations.loadConnections(asUrlInput);
+  }
+
+  async function requestEmailBind() {
+    if (!auth.client || !emailInput) return;
+    const session = await account.requestEmailBind(auth.client, emailInput);
+    if (session) {
+      emailNotice = t("account.email_verification_sent");
+    }
+  }
+
+  async function confirmEmailBind() {
+    if (!auth.client) return;
+    const ok = await account.confirmEmailBind(auth.client);
+    if (ok) {
+      emailInput = "";
+      emailNotice = t("account.email_bound");
+    }
+  }
+
+  async function removeThreePid(medium: "email" | "msisdn", address: string) {
+    if (!auth.client) return;
+    await account.removeThreePid(auth.client, medium, address);
+  }
+
+  async function connectProvider(provider: IntegrationProvider) {
+    const url = await integrations.startOAuth(asStatus.asUrl, provider);
+    if (url) {
+      window.location.href = url;
+    }
   }
 </script>
 
@@ -45,6 +94,91 @@
       <div class="flex items-center justify-between">
         <span class="text-sm text-muted-foreground">{t("settings.connection_status")}</span>
         <span class="text-sm text-green-500">{t("settings.connected")}</span>
+      </div>
+    </div>
+  </div>
+
+  <Separator />
+
+  <!-- Account Security -->
+  <div class="space-y-4">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold text-foreground">{t("account.title")}</h2>
+        <p class="text-sm text-muted-foreground">{t("account.subtitle")}</p>
+      </div>
+      <Button variant="outline" size="sm" onclick={() => auth.client && account.loadThreePids(auth.client)}>
+        <Shield class="h-4 w-4" />
+        {t("common.loading")}
+      </Button>
+    </div>
+
+    <div class="rounded-lg border border-border bg-card p-4 space-y-4">
+      {#if account.error}
+        <Alert variant="destructive">
+          <AlertDescription>{account.error}</AlertDescription>
+        </Alert>
+      {/if}
+
+      {#if emailNotice}
+        <Alert>
+          <AlertDescription>{emailNotice}</AlertDescription>
+        </Alert>
+      {/if}
+
+      <div class="space-y-2">
+        <p class="text-sm font-medium text-foreground">{t("account.bind_email")}</p>
+        <div class="flex gap-2">
+          <Input type="email" bind:value={emailInput} placeholder="name@example.com" class="flex-1" />
+          <Button variant="outline" size="sm" onclick={requestEmailBind} disabled={!emailInput || account.isSaving}>
+            <Link class="h-4 w-4" />
+            {t("account.send_verification")}
+          </Button>
+        </div>
+      </div>
+
+      {#if account.pendingEmailSession}
+        <div class="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+          <div>
+            <p class="text-sm font-medium text-foreground">{t("account.waiting_email")}</p>
+            <p class="text-xs text-muted-foreground">{account.pendingEmailSession.address}</p>
+          </div>
+          <Button size="sm" onclick={confirmEmailBind} disabled={account.isSaving}>
+            {t("account.confirm_bound")}
+          </Button>
+        </div>
+      {/if}
+
+      <div class="space-y-2">
+        <p class="text-sm font-medium text-foreground">{t("account.identifiers")}</p>
+        {#if account.isLoading}
+          <p class="text-sm text-muted-foreground">{t("common.loading")}</p>
+        {:else if account.threePids.length === 0}
+          <p class="text-sm text-muted-foreground">{t("account.no_identifiers")}</p>
+        {:else}
+          <div class="space-y-2">
+            {#each account.threePids as item (`${item.medium}:${item.address}`)}
+              <div class="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <Badge variant="secondary">{item.medium}</Badge>
+                    <p class="truncate text-sm font-medium text-foreground">{item.address}</p>
+                  </div>
+                  <p class="text-xs text-muted-foreground">{t("account.identifier_visible")}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onclick={() => removeThreePid(item.medium as "email" | "msisdn", item.address)}
+                  disabled={account.isSaving}
+                >
+                  <Trash2 class="h-4 w-4" />
+                  {t("account.unbind")}
+                </Button>
+              </div>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
   </div>
@@ -144,7 +278,7 @@
     <p class="text-sm text-muted-foreground">{t("as.section_desc")}</p>
     <div class="rounded-lg border border-border bg-card p-4 space-y-4">
       <div class="space-y-2">
-        <label class="text-sm font-medium text-foreground">{t("as.url")}</label>
+        <p class="text-sm font-medium text-foreground">{t("as.url")}</p>
         <div class="flex gap-2">
           <Input
             type="url"
@@ -187,6 +321,66 @@
           </div>
         </div>
       {/if}
+    </div>
+  </div>
+
+  <Separator />
+
+  <!-- Integrations -->
+  <div class="space-y-4">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold text-foreground">{t("integrations.title")}</h2>
+        <p class="text-sm text-muted-foreground">{t("integrations.subtitle")}</p>
+      </div>
+      <Button variant="outline" size="sm" onclick={() => integrations.loadConnections(asStatus.asUrl)} disabled={integrations.isLoading}>
+        <Plug class="h-4 w-4" />
+        {t("integrations.refresh")}
+      </Button>
+    </div>
+
+    {#if integrations.error}
+      <Alert variant="destructive">
+        <AlertDescription>{integrations.error}</AlertDescription>
+      </Alert>
+    {/if}
+
+    <div class="grid gap-3 md:grid-cols-2">
+      {#each integrations.providers as provider (provider.id)}
+        {@const connection = integrations.getConnection(provider.id)}
+        <div class="rounded-lg border border-border bg-card p-4 space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold text-foreground">{provider.name}</h3>
+              <p class="text-xs text-muted-foreground">{t(provider.descriptionKey)}</p>
+            </div>
+            <Badge variant={connection ? "default" : "secondary"}>
+              {connection ? t("integrations.connected") : t("integrations.available")}
+            </Badge>
+          </div>
+
+          {#if connection}
+            <div class="space-y-1">
+              <p class="text-sm text-foreground">{connection.displayName}</p>
+              {#if connection.lastSyncAt}
+                <p class="text-xs text-muted-foreground">{t("integrations.last_sync", { time: connection.lastSyncAt })}</p>
+              {/if}
+            </div>
+          {:else}
+            <p class="text-xs text-muted-foreground">{t("integrations.requires_as")}</p>
+          {/if}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onclick={() => connectProvider(provider.id)}
+            disabled={!asStatus.asUrl}
+          >
+            <Plug class="h-4 w-4" />
+            {connection ? t("integrations.reconnect") : t("integrations.connect")}
+          </Button>
+        </div>
+      {/each}
     </div>
   </div>
 

@@ -1,5 +1,5 @@
 import type { Room, RoomState, MatrixClient } from "matrix-js-sdk";
-import type { Task, TaskStatus, Priority, TaskType, EstimateUnit, RelationType, WorklogEntry, VersionInfo, NotificationPrefs, TaskTemplate, CustomFieldDefinition, CustomFieldType, CustomFieldValue, ApprovalState, ApprovalStatus, ApprovalConfig, ExternalLink, SortOrderState, GitConfig } from "./types";
+import type { Task, TaskStatus, Priority, TaskType, EstimateUnit, RelationType, WorklogEntry, VersionInfo, NotificationPrefs, TaskTemplate, CustomFieldDefinition, CustomFieldType, CustomFieldValue, ApprovalState, ApprovalStatus, ApprovalConfig, ExternalLink, SortOrderState, GitConfig, IntegrationInfo } from "./types";
 import { TAMARIX_EVENT_TYPES } from "./types";
 
 /**
@@ -542,4 +542,37 @@ export async function setGitConfig(
 
 export function getGitConfig(room: Room): GitConfig | null {
   return getStateEvent<GitConfig>(room, TAMARIX_EVENT_TYPES.GIT_CONFIG);
+}
+
+// ============================================================
+// P6: Third-party Integrations
+// ============================================================
+
+export async function setIntegration(
+  client: MatrixClient,
+  projectRoomId: string,
+  integration: IntegrationInfo
+): Promise<void> {
+  await sendStateEvent(
+    client,
+    projectRoomId,
+    TAMARIX_EVENT_TYPES.INTEGRATION,
+    integration,
+    integration.connectionId
+  );
+}
+
+export function getIntegrations(room: Room): IntegrationInfo[] {
+  const events = room.currentState.getStateEvents(TAMARIX_EVENT_TYPES.INTEGRATION as any);
+  return events
+    .map(e => e.getContent() as IntegrationInfo)
+    .filter(integration => Boolean(integration.provider && integration.connectionId));
+}
+
+export async function removeIntegration(
+  client: MatrixClient,
+  projectRoomId: string,
+  connectionId: string
+): Promise<void> {
+  await sendStateEvent(client, projectRoomId, TAMARIX_EVENT_TYPES.INTEGRATION, {}, connectionId);
 }

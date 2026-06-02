@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { MatrixClient } from "matrix-js-sdk";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Badge } from "$lib/components/ui/badge";
   import MatrixAvatar from "$lib/components/common/MatrixAvatar.svelte";
-  import { UserPlus, X } from "@lucide/svelte";
+  import { Copy, UserPlus, X } from "@lucide/svelte";
   import { t } from "$lib/i18n";
 
   interface Props {
@@ -17,9 +18,9 @@
   let members = $state<Array<{ userId: string; membership: string; powerLevel: number }>>([]);
   let inviteUserId = $state("");
   let isInviting = $state(false);
+  let copyNotice = $state<string | null>(null);
 
-  // Load members
-  $effect(() => {
+  onMount(() => {
     loadMembers();
   });
 
@@ -75,6 +76,14 @@
       console.error("Failed to remove:", e);
     }
   }
+
+  async function copyInviteLink() {
+    const url = new URL("/invite", window.location.origin);
+    url.searchParams.set("roomId", spaceRoomId);
+    await navigator.clipboard.writeText(url.toString());
+    copyNotice = t("invite.link_copied");
+    setTimeout(() => { copyNotice = null; }, 2500);
+  }
 </script>
 
 <div class="space-y-4">
@@ -90,7 +99,14 @@
       <UserPlus class="mr-1 h-4 w-4" />
       {t("project.members.invite")}
     </Button>
+    <Button variant="outline" onclick={copyInviteLink} title={t("invite.copy_link")}>
+      <Copy class="h-4 w-4" />
+    </Button>
   </div>
+
+  {#if copyNotice}
+    <p class="text-xs text-muted-foreground">{copyNotice}</p>
+  {/if}
 
   <!-- Member list -->
   {#if members.length === 0}

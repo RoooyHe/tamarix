@@ -1,7 +1,8 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import { getAuthContext } from "$lib/stores/auth.svelte";
-  import { loginWithToken } from "$lib/matrix/auth";
+  import { consumeSsoLoginState, loginWithToken } from "$lib/matrix/auth";
   import { onMount } from "svelte";
   import { t } from "$lib/i18n";
 
@@ -12,6 +13,14 @@
   onMount(async () => {
     const params = new URLSearchParams(window.location.search);
     const loginToken = params.get("loginToken");
+    const stateParam = params.get("state");
+    const serverError = params.get("error") ?? params.get("error_description");
+
+    if (serverError) {
+      error = serverError;
+      isProcessing = false;
+      return;
+    }
 
     if (!loginToken) {
       error = t("login.invalid_callback");
@@ -19,8 +28,14 @@
       return;
     }
 
-    // Retrieve the stored homeserver URL from the discovery step
-    const baseUrl = sessionStorage.getItem("tamarix.sso_base_url");
+    const ssoState = consumeSsoLoginState(stateParam);
+    if (stateParam && !ssoState) {
+      error = t("login.session_expired");
+      isProcessing = false;
+      return;
+    }
+
+    const baseUrl = ssoState?.baseUrl ?? sessionStorage.getItem("tamarix.sso_base_url");
     if (!baseUrl) {
       error = t("login.session_expired");
       isProcessing = false;
@@ -29,7 +44,8 @@
 
     try {
       await loginWithToken(baseUrl, loginToken);
-      goto("/dashboard", { replaceState: true });
+      sessionStorage.removeItem("tamarix.sso_base_url");
+      goto(resolve((ssoState?.redirectTo ?? "/dashboard") as any), { replaceState: true });
     } catch (e) {
       error = e instanceof Error ? e.message : t("login.sso_failed");
       isProcessing = false;
@@ -53,7 +69,7 @@
         <div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
-        <a href="/login" class="text-sm text-primary underline">{t("login.back_to_login")}</a>
+        <a href={resolve("/login")} class="text-sm text-primary underline">{t("login.back_to_login")}</a>
       </div>
     {/if}
   </div>

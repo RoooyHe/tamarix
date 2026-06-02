@@ -179,6 +179,10 @@ export const TAMARIX_EVENT_TYPES = {
   // --- P4: Git Integration ---
   GIT_CONFIG: "com.tamarix.git_config",
 
+  // --- P6: Third-party Integrations ---
+  INTEGRATION: "com.tamarix.integration",
+  INTEGRATION_EVENT: "com.tamarix.integration_event",
+
   WATCHER: "com.tamarix.watcher",
   NOTIFICATION_PREFS: "com.tamarix.notification_prefs"
 } as const;
@@ -205,6 +209,20 @@ export interface VersionInfo {
   releaseDate?: string;
   /** Version status */
   status: "planned" | "released" | "archived";
+}
+
+// --- P6 Integration Info ---
+export interface IntegrationInfo {
+  provider: string;
+  connectionId: string;
+  scope: "global" | "project";
+  projectRoomId?: string;
+  displayName: string;
+  status: "connected" | "disabled" | "error";
+  permissions: string[];
+  createdBy: string;
+  createdAt: string;
+  lastSyncAt?: string;
 }
 
 // --- Notification ---

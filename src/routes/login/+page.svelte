@@ -3,9 +3,10 @@
   import { Input } from "$lib/components/ui/input";
   import { Field, FieldLabel, FieldDescription } from "$lib/components/ui/field";
   import { getAuthContext } from "$lib/stores/auth.svelte";
-  import { discoverHomeserver, getLoginFlows } from "$lib/matrix/auth";
+  import { buildSsoRedirectUrl, discoverHomeserver, getLoginFlows } from "$lib/matrix/auth";
   import type { LoginFlow, ISSOFlow } from "matrix-js-sdk";
   import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
@@ -30,14 +31,20 @@
   }
 
   /** Build SSO redirect URL for the given flow */
-  function getSSORedirectUrl(flow: ISSOFlow): string {
+  function getSSORedirectUrl(flow: ISSOFlow, idpId?: string): string {
     if (!discoveredBaseUrl) return "";
-    // SSO redirect endpoint per spec:
-    // GET /_matrix/client/v3/auth/{flow.type}/redirect?redirectUrl=...
-    const base = discoveredBaseUrl.replace(/\/+$/, "");
-    const flowType = flow.type; // "m.login.sso" or "m.login.cas"
-    const redirectUrl = encodeURIComponent(window.location.origin + "/login/callback");
-    return `${base}/_matrix/client/v3/auth/${encodeURIComponent(flowType)}/redirect?redirectUrl=${redirectUrl}`;
+    return buildSsoRedirectUrl({
+      baseUrl: discoveredBaseUrl,
+      flowType: flow.type,
+      idpId,
+      callbackOrigin: window.location.origin,
+      redirectTo: getRedirectTo()
+    });
+  }
+
+  function getRedirectTo(): string {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("redirectTo") || "/dashboard";
   }
 
   /** Trigger SSO login by redirecting the browser */
@@ -91,7 +98,7 @@
     if (!discoveredBaseUrl) return;
     await auth.loginWithDiscoveredUrl(discoveredBaseUrl, username, password);
     if (auth.isLoggedIn) {
-      goto("/dashboard", { replaceState: true });
+      goto(resolve(getRedirectTo() as any), { replaceState: true });
     }
   }
 
@@ -198,20 +205,15 @@
             </div>
           {/if}
 
-          {#each ssoFlows as flow}
+          {#each ssoFlows as flow (flow.type)}
             {#if flow.identity_providers && flow.identity_providers.length > 0}
               <!-- SSO with specific identity providers -->
-              {#each flow.identity_providers as provider}
+              {#each flow.identity_providers as provider (provider.id)}
                 <Button
                   variant="outline"
                   class="w-full"
                   onclick={() => {
-                    // SSO redirect with specific IdP
-                    const base = discoveredBaseUrl?.replace(/\/+$/, "") ?? "";
-                    const flowType = flow.type;
-                    const idpId = provider.id;
-                    const redirectUrl = encodeURIComponent(window.location.origin + "/login/callback");
-                    window.location.href = `${base}/_matrix/client/v3/auth/${encodeURIComponent(flowType)}/redirect?idp=${encodeURIComponent(idpId)}&redirectUrl=${redirectUrl}`;
+                    window.location.href = getSSORedirectUrl(flow, provider.id);
                   }}
                 >
                    {t("login.login_via", { provider: provider.name })}
@@ -240,6 +242,10 @@
         <Button variant="ghost" class="w-full text-sm" onclick={resetDiscovery}>
            {t("login.change_server")}
         </Button>
+
+        <a href={resolve("/register")} class="block text-center text-sm text-primary underline">
+          {t("register.create_account")}
+        </a>
       </div>
     {/if}
 

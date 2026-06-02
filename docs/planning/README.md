@@ -24,6 +24,7 @@
 | P3 进度 | P3 已完成 -- AS基础设施/编号生成(幂等)/工作流引擎(硬校验)/Schema校验/搜索索引+HTTP API/通知Bot+Watcher/E2EE降级 + 前端集成(搜索源切换/AS状态检测/E2EE降级Banner) |
 | P4 进度 | P4 已完成（10/10 模块，82/82 明细）-- Chart 报表/版本管理/导入导出/任务模板/自定义字段/审批流/Git 集成/快捷键/同列排序/外部链接全部实现 -- 详见 09-p4-enterprise.md 实施状态总览 |
 | P5 进度 | P5 核心优化已实施 -- 性能观测工具、Sync 防抖、任务缓存/局部刷新、乐观更新、Dashboard/搜索/命令面板降本已落地；虚拟滚动与 AS 聚合接口待扩展 |
+| P6 进度 | P6 前端主干已实施 -- Matrix 注册页、UIA 基础处理、SSO state 校验、3PID 邮箱绑定/解绑、邀请落地页、第三方连接中心和 AS OAuth start 契约已落地 |
 
 ---
 
@@ -42,6 +43,7 @@
 | [09-p4-enterprise](./09-p4-enterprise.md) | P4 -- 企业级 |
 | [10-decisions-and-risks](./10-decisions-and-risks.md) | 关键技术决策、风险与缓解 |
 | [11-p5-performance](./11-p5-performance.md) | P5 -- 数据加载与交互性能优化 |
+| [12-p6-registration-third-party](./12-p6-registration-third-party.md) | P6 -- 注册与第三方 |
 
 ---
 
@@ -55,3 +57,4 @@
 | P3 - AS 增强 | 2-3 周 | AS 编号生成+工作流引擎+Schema校验+搜索索引+通知Bot+Watcher管理 |
 | P4 - 企业级 | 4-6 周 | Chart报表/版本管理/导入导出/任务模板/自定义字段/审批流/Git集成/快捷键/同列排序/外部链接 |
 | P5 - 性能优化 | 2-4 周 | 性能观测+任务增量缓存+Sync防抖+乐观更新+大列表/搜索/报表降本+AS性能接口增强 |
+| P6 - 注册与第三方 | 3-5 周 | Matrix注册+UIA+SSO增强+3PID账号绑定+邀请注册+第三方连接中心+AS OAuth/Webhook+开放API |
