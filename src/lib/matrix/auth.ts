@@ -17,6 +17,21 @@ const STORAGE_KEYS = {
   DEVICE_ID: "tamarix.device_id"
 } as const;
 
+function startSyncAfterRestore(): void {
+  const start = () => {
+    void startClient({ waitForSync: false }).catch(() => undefined);
+  };
+
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => {
+      setTimeout(start, 0);
+    });
+    return;
+  }
+
+  setTimeout(start, 0);
+}
+
 /**
  * Discover the real homeserver base URL via .well-known autodiscovery.
  * If discovery succeeds, returns the resolved base URL.
@@ -182,7 +197,7 @@ export async function restoreSession(): Promise<string | null> {
     if (session.user_id !== userId) {
       throw new Error("Stored Matrix session user mismatch");
     }
-    void startClient({ waitForSync: false }).catch(() => undefined);
+    startSyncAfterRestore();
     return userId;
   } catch {
     // Session is invalid, clear it
