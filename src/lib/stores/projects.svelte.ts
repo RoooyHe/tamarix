@@ -4,6 +4,7 @@ import { Preset, RoomCreateTypeField, RoomType, EventType } from "matrix-js-sdk"
 import type { Project } from "$lib/matrix/types";
 import { roomToProject, isSpaceRoom } from "$lib/matrix/room-utils";
 import { onSyncUpdate } from "$lib/matrix/client";
+import { measureSync } from "$lib/utils/performance";
 import { t } from "$lib/i18n";
 
 const PROJECTS_CONTEXT_KEY = "tamarix:projects";
@@ -29,12 +30,14 @@ function createProjectsState() {
   let syncCleanup: (() => void) | null = null;
 
   function fetchProjects(client: MatrixClient) {
-    isLoading = true;
+    isLoading = projects.length === 0;
     error = null;
     try {
-      const rooms = client.getRooms();
-      const spaceRooms = rooms.filter(isSpaceRoom);
-      projects = spaceRooms.map(roomToProject);
+      projects = measureSync("projects.fetch", () => {
+        const rooms = client.getRooms();
+        const spaceRooms = rooms.filter(isSpaceRoom);
+        return spaceRooms.map(roomToProject);
+      }, { currentProjects: projects.length });
     } catch (e) {
       error = e instanceof Error ? e.message : t("error.load_projects");
     } finally {
@@ -50,7 +53,7 @@ function createProjectsState() {
     stopSyncListener();
     syncCleanup = onSyncUpdate(client, () => {
       fetchProjects(client);
-    });
+    }, { debounceMs: 250 });
   }
 
   function stopSyncListener() {

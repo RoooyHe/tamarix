@@ -34,7 +34,6 @@
   import { getWorklogsContext } from "$lib/stores/worklogs.svelte";
   import { getRecentTasksContext } from "$lib/stores/recent-tasks.svelte";
   import { addWatcher, removeWatcher, getWatchers, sendStateEvent } from "$lib/matrix/state-events";
-  import { setDescription } from "$lib/matrix/state-events";
   import { t } from "$lib/i18n";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
   import { goto } from "$app/navigation";
@@ -234,28 +233,17 @@
 
   async function handlePriorityChange(priority: Priority) {
     if (!auth.client || !task) return;
-    const { setPriority } = await import("$lib/matrix/state-events");
-    await setPriority(auth.client, task.roomId, priority);
-    tasks.fetchTasksFromRooms(auth.client, projectId);
+    await tasks.updateTaskPriority(auth.client, task.roomId, priority);
   }
 
   async function handleTypeChange(type: TaskType) {
     if (!auth.client || !task) return;
-    const { setTaskType } = await import("$lib/matrix/state-events");
-    await setTaskType(auth.client, task.roomId, type);
-    tasks.fetchTasksFromRooms(auth.client, projectId);
+    await tasks.updateTaskType(auth.client, task.roomId, type);
   }
 
   async function handleAssigneeChange(userId: string | undefined) {
     if (!auth.client || !task) return;
-    if (userId) {
-      const { setAssignee } = await import("$lib/matrix/state-events");
-      await setAssignee(auth.client, task.roomId, userId);
-    } else {
-      const { clearAssignee } = await import("$lib/matrix/state-events");
-      await clearAssignee(auth.client, task.roomId);
-    }
-    tasks.fetchTasksFromRooms(auth.client, projectId);
+    await tasks.updateTaskAssignee(auth.client, task.roomId, userId);
   }
 
   async function handleSendComment() {
@@ -266,9 +254,7 @@
 
   async function handleToggleArchive(archived: boolean) {
     if (!auth.client || !task) return;
-    const { setArchive } = await import("$lib/matrix/state-events");
-    await setArchive(auth.client, task.roomId, archived);
-    tasks.fetchTasksFromRooms(auth.client, projectId);
+    await tasks.updateTaskArchive(auth.client, task.roomId, archived);
   }
 
   async function handleToggleWatch() {
@@ -363,8 +349,7 @@
 
   async function handleSaveDescription(body: string, formattedBody: string) {
     if (!auth.client || !task) return;
-    await setDescription(auth.client, task.roomId, body, formattedBody);
-    tasks.fetchTasksFromRooms(auth.client, projectId);
+    await tasks.updateTaskDescription(auth.client, task.roomId, body, formattedBody);
   }
 
   /** Format a Matrix user ID for display: @user:domain �?user */

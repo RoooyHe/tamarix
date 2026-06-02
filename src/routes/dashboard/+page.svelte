@@ -25,6 +25,7 @@
   } from "@lucide/svelte";
   import { goto } from "$app/navigation";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
+  import type { Task } from "$lib/matrix/types";
 
   let auth = getAuthContext();
   let tasks = getTasksContext();
@@ -40,10 +41,36 @@
     }
   });
 
-  // My tasks = tasks assigned to current user
-  let myTasks = $derived(
-    tasks.tasks.filter(t => t.assignee === auth.userId || !t.assignee)
-  );
+  let dashboardTasks = $derived.by(() => {
+    const myTasks: Task[] = [];
+    const now = Date.now();
+    let todoCount = 0;
+    let inProgressCount = 0;
+    let doneCount = 0;
+    let overdueCount = 0;
+
+    for (const task of tasks.tasks) {
+      if (task.assignee !== auth.userId && task.assignee) continue;
+
+      myTasks.push(task);
+      if (task.status === "todo") todoCount += 1;
+      if (task.status === "in_progress") inProgressCount += 1;
+      if (task.status === "done") doneCount += 1;
+      if (
+        task.dueDate &&
+        task.status !== "done" &&
+        task.status !== "closed" &&
+        new Date(task.dueDate).getTime() < now
+      ) {
+        overdueCount += 1;
+      }
+    }
+
+    return { myTasks, todoCount, inProgressCount, doneCount, overdueCount };
+  });
+
+  // My tasks = tasks assigned to current user or unassigned tasks.
+  let myTasks = $derived(dashboardTasks.myTasks);
 
   let upcomingTasks = $derived(
     myTasks
@@ -52,20 +79,11 @@
       .slice(0, 5)
   );
 
-  // Overdue tasks (for stats counter)
-  let overdueTasks = $derived(
-    myTasks.filter(t =>
-      t.dueDate &&
-      t.status !== "done" &&
-      t.status !== "closed" &&
-      new Date(t.dueDate!).getTime() < Date.now()
-    )
-  );
-
-  let todoCount = $derived(myTasks.filter(t => t.status === "todo").length);
-  let inProgressCount = $derived(myTasks.filter(t => t.status === "in_progress").length);
-  let doneCount = $derived(myTasks.filter(t => t.status === "done").length);
-  let overdueCount = $derived(overdueTasks.length);
+  let todoCount = $derived(dashboardTasks.todoCount);
+  let inProgressCount = $derived(dashboardTasks.inProgressCount);
+  let doneCount = $derived(dashboardTasks.doneCount);
+  let overdueCount = $derived(dashboardTasks.overdueCount);
+  let visibleMyTasks = $derived(myTasks.slice(0, isMobile.current ? 5 : 20));
 
   // Recently viewed tasks (limit 5)
   let recentEntries = $derived(recentTasks.getRecentTasks(5));
@@ -193,7 +211,7 @@
       </div>
     {:else}
       <div class="space-y-2">
-        {#each myTasks.slice(0, isMobile.current ? 5 : myTasks.length) as task (task.roomId)}
+        {#each visibleMyTasks as task (task.roomId)}
           <TaskCard {task} onClick={(t) => goto(`/project/${encodeURIComponent(t.projectRoomId ?? '')}/task/${encodeURIComponent(t.roomId)}`)} />
         {/each}
       </div>

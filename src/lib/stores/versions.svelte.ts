@@ -64,7 +64,7 @@ function createVersionsState() {
     stopSyncListener();
     syncCleanup = onSyncUpdate(client, () => {
       fetchVersions(client, spaceRoomId);
-    });
+    }, { debounceMs: 250 });
   }
 
   function stopSyncListener() {

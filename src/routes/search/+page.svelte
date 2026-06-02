@@ -22,10 +22,14 @@
   let asStatus = getAsStatusStore();
 
   let searchQuery = $state("");
+  let debouncedSearchQuery = $state("");
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let asSearching = $state(false);
   let asResults = $state<AsSearchResult[]>([]);
   let asResultCount = $state(0);
+  let asSearchRun = 0;
+
+  const SEARCH_RESULT_LIMIT = 100;
 
   onMount(() => {
     if (auth.client) {
@@ -38,29 +42,29 @@
     ui.searchSource === "as" && asStatus.asAvailable ? "as" : "local"
   );
 
-  // Local search results (always computed for fallback)
-  let localResults = $derived(searchTasks(tasks.tasks, searchQuery, auth.client ?? undefined));
-
-  // AS search with debounce
-  let asSearchQuery = $state("");
   $effect(() => {
-    if (effectiveSource !== "as") return;
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      asSearchQuery = searchQuery;
-    }, 300);
+      debouncedSearchQuery = searchQuery;
+    }, 250);
     return () => clearTimeout(debounceTimer);
   });
 
+  // Local search results (always computed for fallback)
+  let localResults = $derived(searchTasks(tasks.tasks, debouncedSearchQuery, auth.client ?? undefined));
+
   $effect(() => {
-    if (effectiveSource !== "as" || !asSearchQuery.trim()) {
+    const run = ++asSearchRun;
+    if (effectiveSource !== "as" || !debouncedSearchQuery.trim()) {
       asResults = [];
       asResultCount = 0;
+      asSearching = false;
       return;
     }
     asSearching = true;
-    searchViaAS(asSearchQuery, asStatus.asUrl)
+    searchViaAS(debouncedSearchQuery, asStatus.asUrl, { limit: SEARCH_RESULT_LIMIT })
       .then(res => {
+        if (run !== asSearchRun) return;
         if (res) {
           asResults = res.results;
           asResultCount = res.count;
@@ -70,10 +74,12 @@
         }
       })
       .catch(() => {
+        if (run !== asSearchRun) return;
         asResults = [];
         asResultCount = 0;
       })
       .finally(() => {
+        if (run !== asSearchRun) return;
         asSearching = false;
       });
   });
@@ -116,6 +122,8 @@
     return r;
   });
 
+  let visibleResults = $derived(filteredResults.slice(0, SEARCH_RESULT_LIMIT));
+
   function toggleStatusFilter(s: TaskStatus) {
     const next = new Set(filterStatus);
     if (next.has(s)) next.delete(s); else next.add(s);
@@ -136,6 +144,7 @@
 
   function clearAllFilters() {
     searchQuery = "";
+    debouncedSearchQuery = "";
     filterStatus = new Set();
     filterPriority = new Set();
     filterType = new Set();
@@ -259,15 +268,17 @@
         <Button variant="ghost" size="sm" onclick={clearAllFilters}>
           {t("common.clear_filter")}
         </Button>
-        <span class="text-xs text-muted-foreground">{filteredResults.length} {t("search.tasks").toLowerCase()}</span>
+        <span class="text-xs text-muted-foreground">
+          {Math.min(filteredResults.length, SEARCH_RESULT_LIMIT)} / {filteredResults.length} {t("search.tasks").toLowerCase()}
+        </span>
       </div>
     {/if}
   </div>
 
   <!-- Results -->
-  {#if filteredResults.length > 0}
+  {#if visibleResults.length > 0}
     <div class="space-y-2">
-      {#each filteredResults as task (task.roomId)}
+      {#each visibleResults as task (task.roomId)}
         <TaskCard {task} onClick={handleTaskClick} />
       {/each}
     </div>

@@ -27,7 +27,7 @@
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
   import { searchTasks } from "$lib/matrix/search";
   import { exportTasksToCSV, exportTasksToJSON, downloadFile } from "$lib/utils/export";
-  import { clearAssignee, getCustomFieldDefinitions, getCustomFieldValues, setAssignee, setDueDate, setSortOrder, setTags } from "$lib/matrix/state-events";
+  import { getCustomFieldDefinitions, getCustomFieldValues } from "$lib/matrix/state-events";
   import { computeSortAtPosition, SORT_MAX } from "$lib/utils/sort-order";
 
   type IconComponent = Component<LucideProps>;
@@ -102,7 +102,7 @@
     return () => window.removeEventListener("tamarix:shortcut", handleShortcut);
   });
 
-  let projectTasks = $derived(tasks.tasks);
+  let projectTasks = $derived(tasks.getTasksByProject(projectId));
 
   $effect(() => {
     if (!auth.client || !projectId) return;
@@ -233,8 +233,7 @@
       .sort((a, b) => (a.sortOrder ?? SORT_MAX).localeCompare(b.sortOrder ?? SORT_MAX));
     const orderMap = new Map(columnTasks.map(task => [task.roomId, task.sortOrder ?? SORT_MAX]));
     const nextOrder = computeSortAtPosition(columnTasks, Math.min(newIndex, columnTasks.length), orderMap);
-    await setSortOrder(auth.client, taskId, nextOrder);
-    tasks.fetchTasksFromRooms(auth.client, projectId);
+    await tasks.updateTaskSortOrder(auth.client, taskId, nextOrder);
   }
 
   async function handleTableDrop(newIndex: number) {
@@ -244,11 +243,10 @@
     const items = sortedTasks.filter(task => task.roomId !== tableDragTaskId);
     const orderMap = new Map(items.map(task => [task.roomId, task.sortOrder ?? SORT_MAX]));
     const nextOrder = computeSortAtPosition(items, Math.min(newIndex, items.length), orderMap);
-    await setSortOrder(auth.client, tableDragTaskId, nextOrder);
+    await tasks.updateTaskSortOrder(auth.client, tableDragTaskId, nextOrder);
     tableDragTaskId = null;
     sortKey = "manual";
     sortDir = "asc";
-    tasks.fetchTasksFromRooms(auth.client, projectId);
   }
 
   async function handleCreateTask(data: { name: string; topic?: string; status: TaskStatus; priority: Priority; type: TaskType; assignee?: string; tags?: string[]; encrypted?: boolean }) {
@@ -338,9 +336,7 @@
 
   async function toggleArchive(task: Task, archived: boolean) {
     if (!auth.client) return;
-    const { setArchive } = await import("$lib/matrix/state-events");
-    await setArchive(auth.client, task.roomId, archived);
-    tasks.fetchTasksFromRooms(auth.client, projectId);
+    await tasks.updateTaskArchive(auth.client, task.roomId, archived);
   }
 
   // Extract unique assignees and tags from current tasks for filter options
@@ -478,9 +474,8 @@
       const next = existing.includes(normalized)
         ? existing.filter(item => item !== normalized)
         : [...existing, normalized];
-      return setTags(auth.client!, id, next);
+      return tasks.updateTaskTags(auth.client!, id, next);
     }));
-    tasks.fetchTasksFromRooms(auth.client, projectId);
   }
 
   async function handleShortcutAssign() {
@@ -488,17 +483,15 @@
     const userId = window.prompt(t("shortcuts.assign"));
     if (userId === null) return;
     await Promise.all([...selectedTaskIds].map(id =>
-      userId.trim() ? setAssignee(auth.client!, id, userId.trim()) : clearAssignee(auth.client!, id)
+      tasks.updateTaskAssignee(auth.client!, id, userId.trim() ? userId.trim() : undefined)
     ));
-    tasks.fetchTasksFromRooms(auth.client, projectId);
   }
 
   async function handleShortcutDueDate() {
     if (!auth.client) return;
     const dueDate = window.prompt(t("shortcuts.due_date"));
     if (!dueDate?.trim()) return;
-    await Promise.all([...selectedTaskIds].map(id => setDueDate(auth.client!, id, dueDate.trim())));
-    tasks.fetchTasksFromRooms(auth.client, projectId);
+    await Promise.all([...selectedTaskIds].map(id => tasks.updateTaskDueDate(auth.client!, id, dueDate.trim())));
   }
 </script>
 

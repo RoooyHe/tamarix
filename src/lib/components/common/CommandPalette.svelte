@@ -18,12 +18,14 @@
   let auth = getAuthContext();
   let projects = getProjectsContext();
   let tasks = getTasksContext();
+  const COMMAND_TASK_LIMIT = 50;
 
   interface Props {
     open?: boolean;
   }
 
   let { open = $bindable(false) }: Props = $props();
+  let commandTasks = $derived(open ? tasks.tasks.slice(0, COMMAND_TASK_LIMIT) : []);
 
   // Listen for ⌘K / Ctrl+K globally
   onMount(() => {
@@ -62,7 +64,7 @@
     <CommandEmpty>{t("common.no_results")}</CommandEmpty>
 
     <CommandGroup heading={t("search.tasks")}>
-      {#each tasks.tasks as task (task.roomId)}
+      {#each commandTasks as task (task.roomId)}
         <CommandItem
           value={`${task.title} ${task.ticketId ?? ""}`}
           onSelect={() => navigateToTask(task.roomId, task.projectRoomId)}

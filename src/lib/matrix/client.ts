@@ -71,19 +71,61 @@ export async function startClient(): Promise<void> {
   });
 }
 
+interface SyncUpdateOptions {
+  debounceMs?: number;
+  immediatePrepared?: boolean;
+}
+
 /**
- * Register a callback that fires on each sync update (PREPARED or SYNCING).
- * This allows stores to refresh their data from the SDK when new data arrives.
- * Returns a cleanup function to remove the listener.
+ * Register a callback that fires on sync updates (PREPARED or SYNCING).
+ * Sync can be noisy, so callbacks are debounced by default.
  */
-export function onSyncUpdate(client: MatrixClient, callback: () => void): () => void {
-  const handler = (state: string) => {
-    if (state === "PREPARED" || state === "SYNCING") {
-      callback();
+export function onSyncUpdate(
+  client: MatrixClient,
+  callback: () => void,
+  options: SyncUpdateOptions = {}
+): () => void {
+  const debounceMs = options.debounceMs ?? 200;
+  const immediatePrepared = options.immediatePrepared ?? true;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let preparedFired = false;
+
+  const run = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
     }
+    callback();
   };
+
+  const handler = (state: string) => {
+    if (state !== "PREPARED" && state !== "SYNCING") return;
+
+    if (state === "PREPARED" && immediatePrepared && !preparedFired) {
+      preparedFired = true;
+      run();
+      return;
+    }
+
+    if (debounceMs <= 0) {
+      run();
+      return;
+    }
+
+    if (timer) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(run, debounceMs);
+  };
+
   client.on(ClientEvent.Sync, handler);
-  return () => client.removeListener(ClientEvent.Sync, handler);
+  return () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    client.removeListener(ClientEvent.Sync, handler);
+  };
 }
 
 /**

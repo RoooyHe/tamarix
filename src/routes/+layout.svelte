@@ -43,11 +43,6 @@
     await auth.restore();
     isRestoring = false;
 
-    // If logged in, load initial data and start sync listeners
-    if (auth.isLoggedIn && auth.client) {
-      projects.fetchProjects(auth.client);
-      projects.startSyncListener(auth.client);
-    }
   });
 
   // Watch for login state changes to load data, start sync listeners, and redirect
