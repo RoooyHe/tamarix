@@ -1,6 +1,8 @@
-import { createClient, type MatrixClient, ClientEvent } from "matrix-js-sdk";
+import { createClient, type MatrixClient, ClientEvent, Filter } from "matrix-js-sdk";
 
 let client: MatrixClient | null = null;
+const INITIAL_SYNC_LIMIT = 5;
+const START_CLIENT_TIMEOUT_MS = 60000;
 
 /**
  * Get or create the Matrix client singleton.
@@ -45,28 +47,67 @@ export function initClient({
   return client;
 }
 
+interface StartClientOptions {
+  timeoutMs?: number;
+}
+
+function createSyncFilter(client: MatrixClient): Filter {
+  const filter = new Filter(client.getUserId());
+  filter.setTimelineLimit(INITIAL_SYNC_LIMIT);
+  filter.setIncludeLeaveRooms(false);
+  filter.setLazyLoadMembers(true);
+  filter.setUnreadThreadNotifications(true);
+  return filter;
+}
+
 /**
  * Start the client sync loop with V3-compliant options.
- * Returns a promise that resolves when the client is in PREPARED state.
+ * Resolves when the client reaches an initial usable sync state.
  */
-export async function startClient(): Promise<void> {
+export async function startClient(options: StartClientOptions = {}): Promise<void> {
   const c = getClient();
+  const timeoutMs = options.timeoutMs ?? START_CLIENT_TIMEOUT_MS;
   
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+      c.removeListener(ClientEvent.Sync, onSync);
+    };
+
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback();
+    };
+
     const onSync = (state: string) => {
-      if (state === "PREPARED") {
-        c.removeListener(ClientEvent.Sync, onSync);
-        resolve();
+      if (state === "PREPARED" || state === "SYNCING") {
+        finish(resolve);
       } else if (state === "ERROR") {
-        c.removeListener(ClientEvent.Sync, onSync);
-        reject(new Error("Matrix sync failed"));
+        finish(() => reject(new Error("Matrix sync failed")));
       }
     };
+
+    timeout = setTimeout(() => {
+      void c.stopClient();
+      finish(() => reject(new Error("Matrix sync timed out")));
+    }, timeoutMs);
     
     c.on(ClientEvent.Sync, onSync);
     c.startClient({
-      initialSyncLimit: 30,
-      threadSupport: true
+      initialSyncLimit: INITIAL_SYNC_LIMIT,
+      includeArchivedRooms: false,
+      filter: createSyncFilter(c),
+      lazyLoadMembers: true,
+      threadSupport: true,
+      disablePresence: true
     });
   });
 }
