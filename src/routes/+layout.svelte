@@ -21,6 +21,7 @@
   import { TASK_STATUS_ORDER } from "$lib/matrix/types";
 
   let { children } = $props();
+  const RESTORE_BLOCKING_TIMEOUT_MS = 1500;
 
   // Set up all stores at layout level
   let auth = setAuthContext();
@@ -40,9 +41,13 @@
   onMount(async () => {
     initLocale();
     // Try to restore previous session
-    await auth.restore();
+    const restorePromise = auth.restore();
+    await Promise.race([
+      restorePromise,
+      new Promise<void>((resolve) => setTimeout(resolve, RESTORE_BLOCKING_TIMEOUT_MS))
+    ]);
     isRestoring = false;
-
+    void restorePromise.catch(() => undefined);
   });
 
   // Watch for login state changes to load data, start sync listeners, and redirect
