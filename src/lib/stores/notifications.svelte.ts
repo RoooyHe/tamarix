@@ -3,8 +3,7 @@ import type { MatrixClient, MatrixEvent, Room, IRoomTimelineData } from "matrix-
 import { RoomEvent, EventType } from "matrix-js-sdk";
 import type { Notification, NotificationType } from "$lib/matrix/types";
 import { TAMARIX_EVENT_TYPES } from "$lib/matrix/types";
-import { getWatchers } from "$lib/matrix/state-events";
-import { onSyncUpdate } from "$lib/matrix/client";
+import { getWatchers } from "$lib/matrix/task-repository";
 import { isDueSoon } from "$lib/matrix/notifications";
 import { t } from "$lib/i18n";
 

@@ -1,7 +1,7 @@
 ﻿<script lang="ts">
   import type { MatrixClient } from "matrix-js-sdk";
   import type { Attachment } from "$lib/matrix/types";
-  import { getDownloadUrl, getThumbnailUrl, formatFileSize } from "$lib/matrix/media";
+  import { getUrl, formatFileSize } from "$lib/file-service";
   import { Button } from "$lib/components/ui/button";
   import { Download, FileIcon, Image, Film, Music } from "@lucide/svelte";
 
@@ -18,12 +18,12 @@
   let isVideo = $derived(attachment.mimeType.startsWith("video/"));
   let isAudio = $derived(attachment.mimeType.startsWith("audio/"));
 
-  let downloadUrl = $derived(getDownloadUrl(client, attachment.mxcUrl));
+  let downloadUrl = $derived(getUrl(client, attachment.mxcUrl));
   let thumbnailUrl = $derived(
     isImage && attachment.thumbnailMxcUrl
-      ? getThumbnailUrl(client, attachment.thumbnailMxcUrl, 200, 150)
+      ? getUrl(client, attachment.thumbnailMxcUrl, { width: 200, height: 150 })
       : isImage
-        ? getThumbnailUrl(client, attachment.mxcUrl, 200, 150)
+        ? getUrl(client, attachment.mxcUrl, { width: 200, height: 150 })
         : null
   );
 

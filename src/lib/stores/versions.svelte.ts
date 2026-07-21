@@ -1,8 +1,7 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
 import type { VersionInfo } from "$lib/matrix/types";
-import { setVersion as setVersionEvent, getVersions as getVersionsFromRoom } from "$lib/matrix/state-events";
-import { onSyncUpdate } from "$lib/matrix/client";
+import { setVersion as setVersionEvent, getVersions as getVersionsFromRoom } from "$lib/matrix/task-repository";
 import { t } from "$lib/i18n";
 
 const VERSIONS_CONTEXT_KEY = "tamarix:versions";
@@ -11,7 +10,6 @@ function createVersionsState() {
   let versions = $state<VersionInfo[]>([]);
   let isLoading = $state(false);
   let error = $state<string | null>(null);
-  let syncCleanup: (() => void) | null = null;
 
   function fetchVersions(client: MatrixClient, spaceRoomId: string) {
     isLoading = true;
@@ -60,29 +58,13 @@ function createVersionsState() {
     }
   }
 
-  function startSyncListener(client: MatrixClient, spaceRoomId: string) {
-    stopSyncListener();
-    syncCleanup = onSyncUpdate(client, () => {
-      fetchVersions(client, spaceRoomId);
-    }, { debounceMs: 250 });
-  }
-
-  function stopSyncListener() {
-    if (syncCleanup) {
-      syncCleanup();
-      syncCleanup = null;
-    }
-  }
-
   return {
     get versions() { return versions; },
     get isLoading() { return isLoading; },
     get error() { return error; },
     fetchVersions,
     createVersion,
-    updateVersion,
-    startSyncListener,
-    stopSyncListener
+    updateVersion
   };
 }
 

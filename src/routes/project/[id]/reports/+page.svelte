@@ -16,7 +16,7 @@
     getTrendData,
     getAssigneeWorkload,
     getVersionProgress
-  } from "$lib/stores/reports.svelte";
+  } from "$lib/reports";
   import {
     exportChartToPNG,
     exportBurndownToCSV,

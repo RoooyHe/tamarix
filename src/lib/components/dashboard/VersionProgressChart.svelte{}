@@ -2,7 +2,7 @@
   import { ChartContainer, ChartTooltip, type ChartConfig } from "$lib/components/ui/chart";
   import { BarChart, Tooltip } from "layerchart";
   import { t } from "$lib/i18n";
-  import type { VersionProgressItem } from "$lib/stores/reports.svelte";
+  import type { VersionProgressItem } from "$lib/reports";
 
   // Tooltip.Context is a namespace export; cast to any for TS compatibility in templates
   const TooltipContext = Tooltip.Context as any;

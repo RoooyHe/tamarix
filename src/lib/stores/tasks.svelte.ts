@@ -1,27 +1,14 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient, Room } from "matrix-js-sdk";
-import { EventType, Preset } from "matrix-js-sdk";
+import { EventType } from "matrix-js-sdk";
 import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
-import { roomToTask, isTaskRoom } from "$lib/matrix/room-utils";
+import { isTaskRoom } from "$lib/matrix/room-utils";
 import { TAMARIX_EVENT_TYPES, getStatusLabel } from "$lib/matrix/types";
-import { generateNextTicketId } from "$lib/matrix/ticket-id";
 import { canTransition } from "$lib/matrix/workflow";
-import {
-  clearAssignee,
-  getApproval,
-  getApprovalConfig,
-  setArchive,
-  setAssignee,
-  setDescription,
-  setDueDate,
-  setPriority,
-  setSortOrder,
-  setTags,
-  setTaskType
-} from "$lib/matrix/state-events";
-import { onSyncUpdate } from "$lib/matrix/client";
+import { getApproval, getApprovalConfig } from "$lib/matrix/state-events";
 import { measureSync } from "$lib/utils/performance";
 import { t } from "$lib/i18n";
+import { getTask, getTasks, patchTask, bulkPatch, createTask as repoCreateTask } from "$lib/matrix/task-repository";
 
 const TASKS_CONTEXT_KEY = "tamarix:tasks";
 
@@ -83,7 +70,6 @@ function createTasksState() {
   let isRefreshing = $state(false);
   let error = $state<string | null>(null);
   let cacheVersion = $state(0);
-  let syncCleanup: (() => void) | null = null;
   let lastProjectId: string | undefined = undefined;
 
   const byRoomId = new Map<string, Task>();
@@ -132,7 +118,7 @@ function createTasksState() {
     allTaskIds = allTaskIds.filter(id => id !== roomId);
   }
 
-  function refreshRoom(room: Room): boolean {
+  function refreshRoom(client: MatrixClient, room: Room): boolean {
     if (!isTaskRoom(room)) {
       if (byRoomId.has(room.roomId)) {
         removeCachedTask(room.roomId);
@@ -146,7 +132,8 @@ function createTasksState() {
       return false;
     }
 
-    const task = roomToTask(room);
+    const task = getTask(client, room.roomId);
+    if (!task) return false;
     upsertCachedTask(task);
     taskSignatures.set(room.roomId, signature);
     return true;
@@ -174,7 +161,7 @@ function createTasksState() {
         const seenRoomIds = new Set<string>();
         for (const room of filteredRooms) {
           seenRoomIds.add(room.roomId);
-          refreshRoom(room);
+          refreshRoom(client, room);
         }
 
         if (projectRoomId) {
@@ -213,7 +200,7 @@ function createTasksState() {
       return;
     }
 
-    const changed = refreshRoom(room);
+    const changed = refreshRoom(client, room);
     if (changed) emitTasks();
   }
 
@@ -226,66 +213,29 @@ function createTasksState() {
       .filter((task): task is Task => !!task);
   }
 
-  function patchTask(roomId: string, patch: Partial<Task>): boolean {
-    const previous = byRoomId.get(roomId);
-    if (!previous) return false;
+  function applyLocalPatch(patch: Partial<Task> | null, roomId: string, previous?: Task): boolean {
+    if (patch === null) {
+      // Revert: restore previous state or remove
+      if (previous) {
+        upsertCachedTask(previous);
+      } else {
+        removeCachedTask(roomId);
+      }
+      emitTasks();
+      return true;
+    }
+
+    // Apply: merge patch into cached task
+    const current = byRoomId.get(roomId);
+    if (!current) return false;
 
     upsertCachedTask({
-      ...previous,
+      ...current,
       ...patch,
       updatedAt: Date.now()
     });
     emitTasks();
     return true;
-  }
-
-  function restoreTask(previous: Task | undefined, roomId: string) {
-    if (previous) {
-      upsertCachedTask(previous);
-    } else {
-      removeCachedTask(roomId);
-    }
-    emitTasks();
-  }
-
-  async function commitOptimisticPatch(
-    client: MatrixClient,
-    roomId: string,
-    patch: Partial<Task>,
-    commit: () => Promise<unknown>,
-    fallbackError: string
-  ): Promise<boolean> {
-    const previous = byRoomId.get(roomId);
-    if (previous) patchTask(roomId, patch);
-
-    try {
-      await commit();
-      return true;
-    } catch (e) {
-      restoreTask(previous, roomId);
-      error = e instanceof Error ? e.message : fallbackError;
-      refreshTask(client, roomId);
-      return false;
-    }
-  }
-
-  /**
-   * Start listening for sync updates to automatically refresh task list.
-   * Call this when navigating to a project page.
-   */
-  function startSyncListener(client: MatrixClient, projectRoomId?: string) {
-    stopSyncListener();
-    lastProjectId = projectRoomId;
-    syncCleanup = onSyncUpdate(client, () => {
-      fetchTasksFromRooms(client, lastProjectId);
-    }, { debounceMs: 250 });
-  }
-
-  function stopSyncListener() {
-    if (syncCleanup) {
-      syncCleanup();
-      syncCleanup = null;
-    }
   }
 
   function isApprovalBlocked(
@@ -327,86 +277,9 @@ function createTasksState() {
     isRefreshing = tasks.length > 0;
     error = null;
     try {
-      const domain = client.getDomain()!;
-
-      // Generate the next ticket ID for this project
-      const ticketId = await generateNextTicketId(client, projectRoomId);
-
-      const result = await client.createRoom({
-        name: options.name,
-        topic: options.topic,
-        preset: Preset.PrivateChat,
-        initial_state: [
-          {
-            type: EventType.SpaceParent,
-            state_key: projectRoomId,
-            content: {
-              canonical: true,
-              via: [domain]
-            }
-          },
-          ...(options.encrypted
-            ? [{
-                type: EventType.RoomEncryption,
-                state_key: "",
-                content: { algorithm: "m.megolm.v1.aes-sha2" }
-              }]
-            : []),
-          {
-            type: TAMARIX_EVENT_TYPES.TASK_STATUS,
-            state_key: "",
-            content: { status: options.status ?? "todo" }
-          },
-          {
-            type: TAMARIX_EVENT_TYPES.TICKET_ID,
-            state_key: "",
-            content: { id: ticketId }
-          },
-          ...(options.priority
-            ? [{
-                type: TAMARIX_EVENT_TYPES.PRIORITY,
-                state_key: "",
-                content: { level: options.priority }
-              }]
-            : []),
-          ...(options.type
-            ? [{
-                type: TAMARIX_EVENT_TYPES.TASK_TYPE,
-                state_key: "",
-                content: { type: options.type }
-              }]
-            : []),
-          ...(options.assignee
-            ? [{
-                type: TAMARIX_EVENT_TYPES.ASSIGNEE,
-                state_key: "",
-                content: { user_id: options.assignee }
-              }]
-            : []),
-          ...(options.tags?.length
-            ? [{
-                type: TAMARIX_EVENT_TYPES.TAGS,
-                state_key: "",
-                content: { tags: options.tags }
-              }]
-            : [])
-        ]
-      });
-
-      await client.sendStateEvent(
-        projectRoomId,
-        EventType.SpaceChild,
-        {
-          via: [domain],
-          suggested: false,
-          order: String(Date.now()).padStart(20, "0")
-        },
-        result.room_id
-      );
-
+      const roomId = await repoCreateTask(client, projectRoomId, options);
       fetchTasksFromRooms(client, projectRoomId);
-
-      return result.room_id;
+      return roomId;
     } catch (e) {
       error = e instanceof Error ? e.message : t("error.create_task");
     } finally {
@@ -432,47 +305,34 @@ function createTasksState() {
       return;
     }
 
-    await commitOptimisticPatch(
-      client,
-      roomId,
-      { status },
-      () => client.sendStateEvent(roomId, TAMARIX_EVENT_TYPES.TASK_STATUS as any, { status }, ""),
-      t("error.update_status")
-    );
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(client, roomId, { status }, (patch) => applyLocalPatch(patch, roomId, previous));
+    if (!ok) {
+      error = t("error.update_status");
+    }
   }
 
   async function updateTaskPriority(client: MatrixClient, roomId: string, priority: Priority) {
-    await commitOptimisticPatch(
-      client,
-      roomId,
-      { priority },
-      () => setPriority(client, roomId, priority),
-      t("error.update_status")
-    );
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(client, roomId, { priority }, (patch) => applyLocalPatch(patch, roomId, previous));
+    if (!ok) error = t("error.update_status");
   }
 
   async function updateTaskType(client: MatrixClient, roomId: string, type: TaskType) {
-    await commitOptimisticPatch(
-      client,
-      roomId,
-      { type },
-      () => setTaskType(client, roomId, type),
-      t("error.update_status")
-    );
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(client, roomId, { type }, (patch) => applyLocalPatch(patch, roomId, previous));
+    if (!ok) error = t("error.update_status");
   }
 
   async function updateTaskAssignee(client: MatrixClient, roomId: string, assignee: string | undefined) {
-    await commitOptimisticPatch(
-      client,
-      roomId,
-      { assignee },
-      () => assignee ? setAssignee(client, roomId, assignee) : clearAssignee(client, roomId),
-      t("error.update_status")
-    );
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(client, roomId, { assignee }, (patch) => applyLocalPatch(patch, roomId, previous));
+    if (!ok) error = t("error.update_status");
   }
 
   async function updateTaskArchive(client: MatrixClient, roomId: string, archived: boolean) {
-    await commitOptimisticPatch(
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(
       client,
       roomId,
       {
@@ -480,52 +340,41 @@ function createTasksState() {
         archivedBy: client.getUserId() ?? undefined,
         archivedAt: new Date().toISOString()
       },
-      () => setArchive(client, roomId, archived),
-      t("error.update_status")
+      (patch) => applyLocalPatch(patch, roomId, previous)
     );
+    if (!ok) error = t("error.update_status");
   }
 
   async function updateTaskDescription(client: MatrixClient, roomId: string, body: string, formattedBody: string) {
-    await commitOptimisticPatch(
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(
       client,
       roomId,
       {
         description: body,
         formattedDescription: formattedBody
       },
-      () => setDescription(client, roomId, body, formattedBody),
-      t("error.update_status")
+      (patch) => applyLocalPatch(patch, roomId, previous)
     );
+    if (!ok) error = t("error.update_status");
   }
 
   async function updateTaskSortOrder(client: MatrixClient, roomId: string, sortOrder: string) {
-    await commitOptimisticPatch(
-      client,
-      roomId,
-      { sortOrder },
-      () => setSortOrder(client, roomId, sortOrder),
-      t("error.update_status")
-    );
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(client, roomId, { sortOrder }, (patch) => applyLocalPatch(patch, roomId, previous));
+    if (!ok) error = t("error.update_status");
   }
 
   async function updateTaskTags(client: MatrixClient, roomId: string, tags: string[]) {
-    await commitOptimisticPatch(
-      client,
-      roomId,
-      { tags },
-      () => setTags(client, roomId, tags),
-      t("error.update_status")
-    );
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(client, roomId, { tags }, (patch) => applyLocalPatch(patch, roomId, previous));
+    if (!ok) error = t("error.update_status");
   }
 
   async function updateTaskDueDate(client: MatrixClient, roomId: string, dueDate: string) {
-    await commitOptimisticPatch(
-      client,
-      roomId,
-      { dueDate },
-      () => setDueDate(client, roomId, dueDate),
-      t("error.update_status")
-    );
+    const previous = byRoomId.get(roomId);
+    const ok = await patchTask(client, roomId, { dueDate }, (patch) => applyLocalPatch(patch, roomId, previous));
+    if (!ok) error = t("error.update_status");
   }
 
   function getTaskById(taskId: string): Task | undefined {
@@ -534,75 +383,87 @@ function createTasksState() {
 
   async function bulkUpdateStatus(client: MatrixClient, roomIds: string[], status: TaskStatus, projectRoomId?: string) {
     error = null;
-    const previous = new Map(roomIds.map(id => [id, byRoomId.get(id)] as const));
-    try {
-      const blocked = roomIds.some(id => {
-        const currentTask = byRoomId.get(id);
-        return currentTask ? isApprovalBlocked(client, id, currentTask.status, status, projectRoomId) : false;
-      });
-      if (blocked) {
-        error = t("error.approval_required");
-        return;
-      }
-
-      for (const id of roomIds) patchTask(id, { status });
-      await Promise.all(
-        roomIds.map(id => client.sendStateEvent(id, TAMARIX_EVENT_TYPES.TASK_STATUS as any, { status }, ""))
-      );
-    } catch (e) {
-      for (const [id, task] of previous) restoreTask(task, id);
-      error = e instanceof Error ? e.message : t("error.update_status");
+    const blocked = roomIds.some(id => {
+      const currentTask = byRoomId.get(id);
+      return currentTask ? isApprovalBlocked(client, id, currentTask.status, status, projectRoomId) : false;
+    });
+    if (blocked) {
+      error = t("error.approval_required");
+      return;
     }
+
+    const patches = new Map(roomIds.map(id => [id, { status } as Partial<Task>]));
+    const previous = new Map(roomIds.map(id => [id, byRoomId.get(id)] as const));
+    const ok = await bulkPatch(client, patches, (revertPatches) => {
+      if (revertPatches === null) {
+        // Revert all
+        for (const [id, prev] of previous) {
+          applyLocalPatch(prev ?? null, id, undefined);
+        }
+      } else {
+        // Apply all
+        for (const [id, patch] of revertPatches) {
+          applyLocalPatch(patch, id);
+        }
+      }
+    });
+    if (!ok) error = t("error.update_status");
   }
 
   async function bulkUpdatePriority(client: MatrixClient, roomIds: string[], priority: Priority, _projectRoomId?: string) {
-    error = null;
+    const patches = new Map(roomIds.map(id => [id, { priority } as Partial<Task>]));
     const previous = new Map(roomIds.map(id => [id, byRoomId.get(id)] as const));
-    try {
-      for (const id of roomIds) patchTask(id, { priority });
-      await Promise.all(
-        roomIds.map(id => setPriority(client, id, priority))
-      );
-    } catch (e) {
-      for (const [id, task] of previous) restoreTask(task, id);
-      error = e instanceof Error ? e.message : t("error.update_status");
-    }
+    const ok = await bulkPatch(client, patches, (revertPatches) => {
+      if (revertPatches === null) {
+        for (const [id, prev] of previous) {
+          applyLocalPatch(prev ?? null, id, undefined);
+        }
+      } else {
+        for (const [id, patch] of revertPatches) {
+          applyLocalPatch(patch, id);
+        }
+      }
+    });
+    if (!ok) error = t("error.update_status");
   }
 
   async function bulkArchive(client: MatrixClient, roomIds: string[], _projectRoomId?: string) {
-    error = null;
+    const patches = new Map(roomIds.map(id => [id, { archived: true } as Partial<Task>]));
     const previous = new Map(roomIds.map(id => [id, byRoomId.get(id)] as const));
-    try {
-      const archivedAt = new Date().toISOString();
-      for (const id of roomIds) {
-        patchTask(id, { archived: true, archivedBy: client.getUserId() ?? undefined, archivedAt });
+    const ok = await bulkPatch(client, patches, (revertPatches) => {
+      if (revertPatches === null) {
+        for (const [id, prev] of previous) {
+          applyLocalPatch(prev ?? null, id, undefined);
+        }
+      } else {
+        for (const [id, patch] of revertPatches) {
+          applyLocalPatch(patch, id);
+        }
       }
-      await Promise.all(
-        roomIds.map(id => setArchive(client, id, true))
-      );
-    } catch (e) {
-      for (const [id, task] of previous) restoreTask(task, id);
-      error = e instanceof Error ? e.message : t("error.update_status");
-    }
+    });
+    if (!ok) error = t("error.update_status");
   }
 
   async function bulkAddTag(client: MatrixClient, roomIds: string[], tag: string, _projectRoomId?: string) {
-    error = null;
+    const patches = new Map<string, Partial<Task>>();
     const previous = new Map(roomIds.map(id => [id, byRoomId.get(id)] as const));
-    try {
-      await Promise.all(
-        roomIds.map(async (id) => {
-          const existingTask = byRoomId.get(id);
-          const existingTags = existingTask?.tags ?? [];
-          const merged = [...new Set([...existingTags, tag])];
-          patchTask(id, { tags: merged });
-          await setTags(client, id, merged);
-        })
-      );
-    } catch (e) {
-      for (const [id, task] of previous) restoreTask(task, id);
-      error = e instanceof Error ? e.message : t("error.update_status");
+    for (const id of roomIds) {
+      const existingTask = byRoomId.get(id);
+      const existingTags = existingTask?.tags ?? [];
+      patches.set(id, { tags: [...new Set([...existingTags, tag])] });
     }
+    const ok = await bulkPatch(client, patches, (revertPatches) => {
+      if (revertPatches === null) {
+        for (const [id, prev] of previous) {
+          applyLocalPatch(prev ?? null, id, undefined);
+        }
+      } else {
+        for (const [id, patch] of revertPatches) {
+          applyLocalPatch(patch, id);
+        }
+      }
+    });
+    if (!ok) error = t("error.update_status");
   }
 
   return {
@@ -613,9 +474,6 @@ function createTasksState() {
     fetchTasksFromRooms,
     refreshTask,
     getTasksByProject,
-    patchTask,
-    startSyncListener,
-    stopSyncListener,
     createTask,
     updateTaskStatus,
     updateTaskPriority,

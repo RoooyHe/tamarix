@@ -19,6 +19,7 @@
   import { isInputElement } from "$lib/utils/keyboard";
   import type { TaskStatus } from "$lib/matrix/types";
   import { TASK_STATUS_ORDER } from "$lib/matrix/types";
+  import { createSyncManager } from "$lib/matrix/sync-manager";
 
   let { children } = $props();
   const RESTORE_BLOCKING_TIMEOUT_MS = 1500;
@@ -33,6 +34,10 @@
   let versions = setVersionsContext();
   let recentTasks = setRecentTasksContext();
   let ui = setUiContext();
+
+  // Sync manager: stores register refresh callbacks, layout manages lifecycle
+  let syncManager = createSyncManager();
+  syncManager.subscribe((client) => projects.fetchProjects(client));
 
   let isRestoring = $state(true);
   let shortcutsOpen = $state(false);
@@ -58,11 +63,11 @@
     untrack(() => {
       if (isLoggedIn && client) {
         projects.fetchProjects(client);
-        projects.startSyncListener(client);
+        syncManager.start(client);
         notifications.startSyncListener(client);
         notifications.startDueCheckTimer(client, () => tasks.tasks);
       } else {
-        projects.stopSyncListener();
+        syncManager.stop();
         notifications.stopSyncListener();
         notifications.stopDueCheckTimer();
       }

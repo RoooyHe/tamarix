@@ -25,15 +25,6 @@ localeRegistry.set("en", en);
 // which calls setLocale() and triggers $effect re-computation in components.
 let _currentLocale: Locale = "zh";
 
-// --- Internal API for ui.svelte.ts ---
-export function _getLocale(): Locale {
-  return _currentLocale;
-}
-
-export function _setLocale(locale: Locale): void {
-  _currentLocale = locale;
-}
-
 // --- Public API ---
 
 /**

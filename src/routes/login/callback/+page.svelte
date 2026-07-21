@@ -2,7 +2,7 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { getAuthContext } from "$lib/stores/auth.svelte";
-  import { consumeSsoLoginState, loginWithToken } from "$lib/matrix/auth";
+  import { consumeSsoLoginState } from "$lib/matrix/auth";
   import { onMount } from "svelte";
   import { t } from "$lib/i18n";
 
@@ -43,7 +43,7 @@
     }
 
     try {
-      await loginWithToken(baseUrl, loginToken);
+      await auth.loginWithToken(baseUrl, loginToken);
       sessionStorage.removeItem("tamarix.sso_base_url");
       goto(resolve((ssoState?.redirectTo ?? "/dashboard") as any), { replaceState: true });
     } catch (e) {

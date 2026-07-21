@@ -96,7 +96,7 @@
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     if (!discoveredBaseUrl) return;
-    await auth.loginWithDiscoveredUrl(discoveredBaseUrl, username, password);
+    await auth.login(discoveredBaseUrl, username, password);
     if (auth.isLoggedIn) {
       goto(resolve(getRedirectTo() as any), { replaceState: true });
     }

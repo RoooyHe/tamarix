@@ -1,18 +1,8 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
-import { getClient, hasClient } from "$lib/matrix/client";
-import { loginWithPassword, restoreSession, logout as matrixLogout } from "$lib/matrix/auth";
-import { t } from "$lib/i18n";
+import { createClientManager, type ClientManager } from "$lib/matrix/client-manager";
 
 const AUTH_CONTEXT_KEY = "tamarix:auth";
-
-interface AuthState {
-  isLoggedIn: boolean;
-  userId: string | null;
-  client: MatrixClient | null;
-  isLoading: boolean;
-  error: string | null;
-}
 
 function createAuthState() {
   let isLoggedIn = $state(false);
@@ -21,34 +11,37 @@ function createAuthState() {
   let isLoading = $state(false);
   let error = $state<string | null>(null);
 
-  /** Login using the discovered base URL from the discovery step */
-  async function loginWithDiscoveredUrl(discoveredBaseUrl: string, username: string, password: string) {
+  const manager = createClientManager();
+
+  function syncState() {
+    userId = manager.getUserId();
+    client = manager.getClient();
+    isLoggedIn = manager.hasClient();
+  }
+
+  async function login(baseUrl: string, username: string, password: string) {
     isLoading = true;
     error = null;
     try {
-      const result = await loginWithPassword(discoveredBaseUrl, username, password);
-      userId = result.userId;
-      isLoggedIn = true;
-      client = getClient();
+      await manager.login(baseUrl, username, password);
+      syncState();
     } catch (e) {
-      error = e instanceof Error ? e.message : t("error.login_failed");
+      error = e instanceof Error ? e.message : "Login failed";
       isLoggedIn = false;
     } finally {
       isLoading = false;
     }
   }
 
-  /** Legacy login: auto-discovers the base URL from the homeserver domain */
-  async function login(baseUrl: string, username: string, password: string) {
+  /** Login via SSO token (called after SSO redirect callback) */
+  async function loginWithToken(baseUrl: string, loginToken: string) {
     isLoading = true;
     error = null;
     try {
-      const result = await loginWithPassword(baseUrl, username, password);
-      userId = result.userId;
-      isLoggedIn = true;
-      client = getClient();
+      await manager.loginWithToken(baseUrl, loginToken);
+      syncState();
     } catch (e) {
-      error = e instanceof Error ? e.message : t("error.login_failed");
+      error = e instanceof Error ? e.message : "SSO login failed";
       isLoggedIn = false;
     } finally {
       isLoading = false;
@@ -59,14 +52,12 @@ function createAuthState() {
     isLoading = true;
     error = null;
     try {
-      const restoredUserId = await restoreSession();
+      const restoredUserId = await manager.restore();
       if (restoredUserId) {
-        userId = restoredUserId;
-        isLoggedIn = true;
-        client = getClient();
+        syncState();
       }
     } catch (e) {
-      error = e instanceof Error ? e.message : t("error.restore_failed");
+      error = e instanceof Error ? e.message : "Session restore failed";
     } finally {
       isLoading = false;
     }
@@ -74,13 +65,11 @@ function createAuthState() {
 
   async function logout() {
     try {
-      await matrixLogout();
+      await manager.logout();
     } catch {
       // Ignore
     }
-    isLoggedIn = false;
-    userId = null;
-    client = null;
+    syncState();
   }
 
   return {
@@ -90,7 +79,7 @@ function createAuthState() {
     get isLoading() { return isLoading; },
     get error() { return error; },
     login,
-    loginWithDiscoveredUrl,
+    loginWithToken,
     restore,
     logout
   };

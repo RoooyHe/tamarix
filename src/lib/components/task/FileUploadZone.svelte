@@ -1,6 +1,6 @@
 ﻿<script lang="ts">
   import type { MatrixClient } from "matrix-js-sdk";
-  import { uploadFile, validateFile, type UploadResult } from "$lib/matrix/media";
+  import { upload, validate, type UploadResult } from "$lib/file-service";
   import { t } from "$lib/i18n";
   import { Button } from "$lib/components/ui/button";
   import { Upload, X, FileIcon } from "@lucide/svelte";
@@ -61,7 +61,7 @@
     // Validate all files first
     const validFiles: File[] = [];
     for (const file of files) {
-      const result = validateFile(file, undefined, maxFileSize);
+      const result = validate(file, undefined, maxFileSize);
       if (!result.valid) {
         uploadError = result.error ?? t("attachments.validation_failed");
         onerror?.(result.error ?? t("attachments.validation_failed"));
@@ -78,7 +78,7 @@
     try {
       const results: UploadResult[] = [];
       for (let i = 0; i < validFiles.length; i++) {
-        const result = await uploadFile(client, validFiles[i], {
+        const result = await upload(client, validFiles[i], {
           maxSize: maxFileSize,
           onProgress: (sent, total) => {
             uploadProgress = Math.round(((i + sent / total) / validFiles.length) * 100);

@@ -20,15 +20,16 @@
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";
   import type { Task, TaskStatus, Priority, TaskType, CustomFieldDefinition, CustomFieldValue } from "$lib/matrix/types";
-  import { getStatusLabel, getPriorityLabel, getTypeLabel, TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/types";
+  import { getStatusLabel, getPriorityLabel, getTypeLabel, PRIORITY_ORDER } from "$lib/matrix/types";
   import { t } from "$lib/i18n";
   import BulkActionBar from "$lib/components/task/BulkActionBar.svelte";
   import ImportDialog from "$lib/components/task/ImportDialog.svelte";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
-  import { searchTasks } from "$lib/matrix/search";
   import { exportTasksToCSV, exportTasksToJSON, downloadFile } from "$lib/utils/export";
   import { getCustomFieldDefinitions, getCustomFieldValues } from "$lib/matrix/state-events";
   import { computeSortAtPosition, SORT_MAX } from "$lib/utils/sort-order";
+  import { useTaskFilters } from "$lib/hooks/useTaskFilters.svelte";
+  import { useTaskPagination } from "$lib/hooks/useTaskPagination.svelte";
 
   type IconComponent = Component<LucideProps>;
 
@@ -48,26 +49,17 @@
   // View state
   let currentView = $state<"list" | "board">("list");
 
-  // Sort state
-  type SortKey = "manual" | "ticketId" | "title" | "status" | "priority" | "type";
-  let sortKey = $state<SortKey>("status");
-  let sortDir = $state<"asc" | "desc">("asc");
-
-  // Pagination state
-  let pageSize = $state(20);
-  let currentPage = $state(1);
-
-  // Filter state
-  let searchQuery = $state("");
-  let filterPriorities = $state<Set<Priority>>(new Set());
-  let filterTypes = $state<Set<TaskType>>(new Set());
-  let filterAssignees = $state<Set<string>>(new Set());
-  let filterTags = $state<Set<string>>(new Set());
-  let showArchived = $state(false);
   let tableDragTaskId = $state<string | null>(null);
   let customFieldDefs = $state<Map<string, CustomFieldDefinition>>(new Map());
   let customFieldValuesByTask = $state<Map<string, Map<string, CustomFieldValue>>>(new Map());
   let visibleCustomFields = $state<Set<string>>(new Set());
+
+  // Filter + sort + pagination hooks
+  let filters = useTaskFilters(
+    () => tasks.getTasksByProject(projectId),
+    () => auth.client
+  );
+  let pagination = useTaskPagination(() => filters.sortedTasks);
 
   onMount(() => {
     if (auth.client) {
@@ -124,102 +116,11 @@
     customFieldValuesByTask = values;
   });
 
-  // Filtered tasks
-  let filteredTasks = $derived.by(() => {
-    let result = projectTasks;
-
-    // Search filter (supports structured syntax: status:done priority:high keyword)
-    if (searchQuery.trim()) {
-      result = searchTasks(result, searchQuery, auth.client ?? undefined);
-    }
-
-    // Priority filter
-    if (filterPriorities.size > 0) {
-      result = result.filter(t => t.priority && filterPriorities.has(t.priority));
-    }
-
-    // Type filter
-    if (filterTypes.size > 0) {
-      result = result.filter(t => t.type && filterTypes.has(t.type));
-    }
-
-    // Assignee filter
-    if (filterAssignees.size > 0) {
-      result = result.filter(t => t.assignee && filterAssignees.has(t.assignee));
-    }
-
-    // Tags filter
-    if (filterTags.size > 0) {
-      result = result.filter(t => t.tags.some(tag => filterTags.has(tag)));
-    }
-
-    // Archive filter — hide archived by default
-    if (!showArchived) {
-      result = result.filter(t => !t.archived);
-    }
-
-    return result;
-  });
-
-  // Sorted tasks (for list view)
-  let sortedTasks = $derived.by(() => {
-    const arr = [...filteredTasks];
-
-    const statusOrder = TASK_STATUS_ORDER;
-    const priorityOrder = PRIORITY_ORDER;
-
-    arr.sort((a, b) => {
-      let cmp = 0;
-
-      switch (sortKey) {
-        case "manual":
-          cmp = (a.sortOrder ?? SORT_MAX).localeCompare(b.sortOrder ?? SORT_MAX);
-          break;
-        case "ticketId":
-          cmp = (a.ticketId ?? "").localeCompare(b.ticketId ?? "");
-          break;
-        case "title":
-          cmp = a.title.localeCompare(b.title);
-          break;
-        case "status":
-          cmp = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
-          break;
-        case "priority": {
-          const ai = a.priority ? priorityOrder.indexOf(a.priority) : 99;
-          const bi = b.priority ? priorityOrder.indexOf(b.priority) : 99;
-          cmp = ai - bi;
-          break;
-        }
-        case "type": {
-          cmp = (a.type ?? "").localeCompare(b.type ?? "");
-          break;
-        }
-      }
-
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-
-    return arr;
-  });
-
-  // Paginated tasks (for list view)
-  let totalPages = $derived(Math.max(1, Math.ceil(sortedTasks.length / pageSize)));
-  let paginatedTasks = $derived(sortedTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize));
-
   // Reset page when filters change
   $effect(() => {
-    searchQuery; filterPriorities; filterTypes; filterAssignees; filterTags; showArchived;
-    currentPage = 1;
+    filters.searchQuery; filters.filterPriorities; filters.filterTypes; filters.filterAssignees; filters.filterTags; filters.showArchived;
+    pagination.resetPage();
   });
-
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      sortDir = sortDir === "asc" ? "desc" : "asc";
-    } else {
-      sortKey = key;
-      sortDir = "asc";
-    }
-  }
 
   function handleTaskDrop(taskId: string, targetStatus: TaskStatus) {
     if (!auth.client) return;
@@ -228,7 +129,7 @@
 
   async function handleTaskReorder(taskId: string, status: TaskStatus, newIndex: number) {
     if (!auth.client) return;
-    const columnTasks = filteredTasks
+    const columnTasks = filters.filteredTasks
       .filter(task => task.status === status && task.roomId !== taskId)
       .sort((a, b) => (a.sortOrder ?? SORT_MAX).localeCompare(b.sortOrder ?? SORT_MAX));
     const orderMap = new Map(columnTasks.map(task => [task.roomId, task.sortOrder ?? SORT_MAX]));
@@ -238,15 +139,15 @@
 
   async function handleTableDrop(newIndex: number) {
     if (!auth.client || !tableDragTaskId) return;
-    const moving = sortedTasks.find(task => task.roomId === tableDragTaskId);
+    const moving = filters.sortedTasks.find(task => task.roomId === tableDragTaskId);
     if (!moving) return;
-    const items = sortedTasks.filter(task => task.roomId !== tableDragTaskId);
+    const items = filters.sortedTasks.filter(task => task.roomId !== tableDragTaskId);
     const orderMap = new Map(items.map(task => [task.roomId, task.sortOrder ?? SORT_MAX]));
     const nextOrder = computeSortAtPosition(items, Math.min(newIndex, items.length), orderMap);
     await tasks.updateTaskSortOrder(auth.client, tableDragTaskId, nextOrder);
     tableDragTaskId = null;
-    sortKey = "manual";
-    sortDir = "asc";
+    filters.sortKey = "manual";
+    filters.sortDir = "asc";
   }
 
   async function handleCreateTask(data: { name: string; topic?: string; status: TaskStatus; priority: Priority; type: TaskType; assignee?: string; tags?: string[]; encrypted?: boolean }) {
@@ -264,12 +165,12 @@
   }
 
   function handleExportCSV() {
-    const csv = exportTasksToCSV(filteredTasks);
+    const csv = exportTasksToCSV(filters.filteredTasks);
     downloadFile(csv, `${project?.name ?? "tasks"}.csv`, "text/csv");
   }
 
   function handleExportJSON() {
-    const json = exportTasksToJSON(filteredTasks);
+    const json = exportTasksToJSON(filters.filteredTasks);
     downloadFile(json, `${project?.name ?? "tasks"}.json`, "application/json");
   }
 
@@ -277,46 +178,6 @@
     if (auth.client) {
       tasks.fetchTasksFromRooms(auth.client, projectId);
     }
-  }
-
-  function togglePriorityFilter(p: Priority) {
-    const next = new Set(filterPriorities);
-    if (next.has(p)) {
-      next.delete(p);
-    } else {
-      next.add(p);
-    }
-    filterPriorities = next;
-  }
-
-  function toggleTypeFilter(t: TaskType) {
-    const next = new Set(filterTypes);
-    if (next.has(t)) {
-      next.delete(t);
-    } else {
-      next.add(t);
-    }
-    filterTypes = next;
-  }
-
-  function toggleAssigneeFilter(a: string) {
-    const next = new Set(filterAssignees);
-    if (next.has(a)) {
-      next.delete(a);
-    } else {
-      next.add(a);
-    }
-    filterAssignees = next;
-  }
-
-  function toggleTagFilter(tag: string) {
-    const next = new Set(filterTags);
-    if (next.has(tag)) {
-      next.delete(tag);
-    } else {
-      next.add(tag);
-    }
-    filterTags = next;
   }
 
   function toggleCustomColumn(fieldName: string) {
@@ -358,16 +219,7 @@
     return [...set].sort();
   });
 
-  let hasActiveFilters = $derived(filterPriorities.size > 0 || filterTypes.size > 0 || filterAssignees.size > 0 || filterTags.size > 0 || showArchived || searchQuery.trim() !== "");
-
-  function clearFilters() {
-    searchQuery = "";
-    filterPriorities = new Set();
-    filterTypes = new Set();
-    filterAssignees = new Set();
-    filterTags = new Set();
-    showArchived = false;
-  }
+  let hasActiveFilters = $derived(filters.filterPriorities.size > 0 || filters.filterTypes.size > 0 || filters.filterAssignees.size > 0 || filters.filterTags.size > 0 || filters.showArchived || filters.searchQuery.trim() !== "");
 
   const typeIcon: Record<string, IconComponent> = {
     bug: Bug,
@@ -415,7 +267,7 @@
   }
 
   function toggleSelectAllOnPage() {
-    const pageIds = paginatedTasks.map(t => t.roomId);
+    const pageIds = pagination.paginatedTasks.map(t => t.roomId);
     const allSelected = pageIds.every(id => selectedTaskIds.has(id));
     if (allSelected) {
       const next = new Set(selectedTaskIds);
@@ -588,7 +440,7 @@
       bind:ref={searchInput}
       type="search"
       placeholder={t("search.search_tasks")}
-      bind:value={searchQuery}
+      bind:value={filters.searchQuery}
       class={isMobile.current ? "w-full" : "w-56"}
     />
 
@@ -600,7 +452,7 @@
           {t("common.filter")}
           {#if hasActiveFilters}
             <Badge variant="secondary" class="ml-1 h-5 px-1 text-[10px]">
-              {filterPriorities.size + filterTypes.size + filterAssignees.size + filterTags.size}
+              {filters.filterPriorities.size + filters.filterTypes.size + filters.filterAssignees.size + filters.filterTags.size}
             </Badge>
           {/if}
         </Button>
@@ -613,8 +465,8 @@
               {#each PRIORITY_ORDER as p (p)}
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
                   <Checkbox
-                    checked={filterPriorities.has(p)}
-                    onCheckedChange={() => togglePriorityFilter(p)}
+                    checked={filters.filterPriorities.has(p)}
+                    onCheckedChange={() => filters.togglePriorityFilter(p)}
                   />
                   <Badge variant="outline" class={priorityColorClass[p] ?? ""}>
                     {getPriorityLabel(p)}
@@ -630,8 +482,8 @@
               {#each (["bug", "feature", "task", "improvement", "epic"] as TaskType[]) as t (t)}
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
                   <Checkbox
-                    checked={filterTypes.has(t)}
-                    onCheckedChange={() => toggleTypeFilter(t)}
+                    checked={filters.filterTypes.has(t)}
+                    onCheckedChange={() => filters.toggleTypeFilter(t)}
                   />
                   {getTypeLabel(t)}
                 </label>
@@ -646,8 +498,8 @@
                 {#each availableAssignees as a (a)}
                   <label class="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
-                      checked={filterAssignees.has(a)}
-                      onCheckedChange={() => toggleAssigneeFilter(a)}
+                      checked={filters.filterAssignees.has(a)}
+                      onCheckedChange={() => filters.toggleAssigneeFilter(a)}
                     />
                     <span class="text-xs text-muted-foreground">{formatSender(a)}</span>
                   </label>
@@ -663,8 +515,8 @@
                 {#each availableTags as tag (tag)}
                   <label class="flex items-center gap-1.5 cursor-pointer">
                     <Checkbox
-                      checked={filterTags.has(tag)}
-                      onCheckedChange={() => toggleTagFilter(tag)}
+                      checked={filters.filterTags.has(tag)}
+                      onCheckedChange={() => filters.toggleTagFilter(tag)}
                     />
                     <Badge variant="outline" class="text-[10px]">{tag}</Badge>
                   </label>
@@ -676,15 +528,15 @@
           <div class="border-t border-border pt-3">
             <label class="flex items-center gap-2 cursor-pointer">
               <Checkbox
-                checked={showArchived}
-                onCheckedChange={() => showArchived = !showArchived}
+                checked={filters.showArchived}
+                onCheckedChange={() => filters.showArchived = !filters.showArchived}
               />
               <span class="text-sm">{t("list.show_archived")}</span>
             </label>
           </div>
 
           {#if hasActiveFilters}
-            <Button variant="ghost" size="sm" class="w-full" onclick={clearFilters}>
+            <Button variant="ghost" size="sm" class="w-full" onclick={filters.clearFilters}>
               {t("common.clear_filter")}
             </Button>
           {/if}
@@ -731,7 +583,7 @@
   {:else if currentView === "board"}
     <!-- Kanban view -->
     <KanbanBoard
-      tasks={filteredTasks}
+      tasks={filters.filteredTasks}
       {selectedTaskIds}
       onTaskClick={(t) => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(t.roomId)}`)}
       onTaskDrop={handleTaskDrop}
@@ -743,7 +595,7 @@
     <div class="space-y-3">
       <!-- Mobile card list -->
       <div class="space-y-2 md:hidden">
-        {#each paginatedTasks as task (task.roomId)}
+        {#each pagination.paginatedTasks as task (task.roomId)}
           <div
             class="rounded-lg border border-border bg-card p-3 cursor-pointer {task.archived ? 'opacity-60' : ''} {selectedTaskIds.has(task.roomId) ? 'ring-2 ring-primary' : ''}"
             onclick={() => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(task.roomId)}`)}
@@ -819,55 +671,55 @@
             <TableRow class="bg-muted/50 hover:bg-muted/50">
               <TableHead class="px-2 py-2 w-10">
                 <Checkbox
-                  checked={paginatedTasks.length > 0 && paginatedTasks.every(t => selectedTaskIds.has(t.roomId))}
+                  checked={pagination.paginatedTasks.length > 0 && pagination.paginatedTasks.every(t => selectedTaskIds.has(t.roomId))}
                   onCheckedChange={toggleSelectAllOnPage}
                 />
               </TableHead>
               <TableHead class="px-3 py-2">
-                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("ticketId")}>
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => filters.toggleSort("ticketId")}>
                   {t("list.ticket_id")}
-                  {#if sortKey === "ticketId"}
-                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {#if filters.sortKey === "ticketId"}
+                    {#if filters.sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
                   {:else}
                     <ArrowUpDown class="h-3 w-3 opacity-40" />
                   {/if}
                 </button>
               </TableHead>
               <TableHead class="px-3 py-2">
-                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("title")}>
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => filters.toggleSort("title")}>
                   {t("list.title")}
-                  {#if sortKey === "title"}
-                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {#if filters.sortKey === "title"}
+                    {#if filters.sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
                   {:else}
                     <ArrowUpDown class="h-3 w-3 opacity-40" />
                   {/if}
                 </button>
               </TableHead>
               <TableHead class="px-3 py-2">
-                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("status")}>
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => filters.toggleSort("status")}>
                   {t("list.status")}
-                  {#if sortKey === "status"}
-                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {#if filters.sortKey === "status"}
+                    {#if filters.sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
                   {:else}
                     <ArrowUpDown class="h-3 w-3 opacity-40" />
                   {/if}
                 </button>
               </TableHead>
               <TableHead class="px-3 py-2">
-                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("priority")}>
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => filters.toggleSort("priority")}>
                   {t("list.priority")}
-                  {#if sortKey === "priority"}
-                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {#if filters.sortKey === "priority"}
+                    {#if filters.sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
                   {:else}
                     <ArrowUpDown class="h-3 w-3 opacity-40" />
                   {/if}
                 </button>
               </TableHead>
               <TableHead class="px-3 py-2">
-                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => toggleSort("type")}>
+                <button class="inline-flex items-center gap-1 hover:text-foreground" onclick={() => filters.toggleSort("type")}>
                   {t("list.type")}
-                  {#if sortKey === "type"}
-                    {#if sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
+                  {#if filters.sortKey === "type"}
+                    {#if filters.sortDir === "asc"}<ChevronUp class="h-3 w-3" />{:else}<ChevronDown class="h-3 w-3" />{/if}
                   {:else}
                     <ArrowUpDown class="h-3 w-3 opacity-40" />
                   {/if}
@@ -882,14 +734,14 @@
             </TableRow>
           </TableHeader>
           <TableBody>
-            {#each paginatedTasks as task, index (task.roomId)}
+            {#each pagination.paginatedTasks as task, index (task.roomId)}
               <TableRow
                 class="cursor-pointer {task.archived ? 'opacity-60' : ''} {selectedTaskIds.has(task.roomId) ? 'bg-primary/5' : ''}"
                 onclick={() => goto(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(task.roomId)}`)}
                 draggable="true"
                 ondragstart={() => { tableDragTaskId = task.roomId; }}
                 ondragover={(event) => { event.preventDefault(); }}
-                ondrop={(event) => { event.preventDefault(); void handleTableDrop((currentPage - 1) * pageSize + index); }}
+                ondrop={(event) => { event.preventDefault(); void handleTableDrop((pagination.currentPage - 1) * pagination.pageSize + index); }}
                 role="button"
                 tabindex={0}
               >
@@ -974,38 +826,38 @@
       </div>
 
       <!-- Pagination -->
-      {#if sortedTasks.length > 0}
+      {#if filters.sortedTasks.length > 0}
         <div class="flex items-center justify-between px-1 flex-wrap gap-2">
           <div class="flex items-center gap-2 text-sm text-muted-foreground">
              <span>{t("pagination.per_page")}</span>
             <select
               class="rounded border border-border bg-background px-2 py-1 text-sm"
-              bind:value={pageSize}
-              onchange={() => { currentPage = 1; }}
+              bind:value={pagination.pageSize}
+              onchange={() => { pagination.currentPage = 1; }}
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
             </select>
-             <span>{t("pagination.total", { n: sortedTasks.length })}</span>
+             <span>{t("pagination.total", { n: filters.sortedTasks.length })}</span>
           </div>
           <div class="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              disabled={currentPage <= 1}
-              onclick={() => currentPage--}
+              disabled={pagination.currentPage <= 1}
+              onclick={() => pagination.currentPage--}
             >
               <ChevronLeft class="h-4 w-4" />
             </Button>
             <span class="text-sm text-muted-foreground">
-              {currentPage} / {totalPages}
+              {pagination.currentPage} / {pagination.totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
-              disabled={currentPage >= totalPages}
-              onclick={() => currentPage++}
+              disabled={pagination.currentPage >= pagination.totalPages}
+              onclick={() => pagination.currentPage++}
             >
               <ChevronRight class="h-4 w-4" />
             </Button>

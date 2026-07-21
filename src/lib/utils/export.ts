@@ -5,7 +5,7 @@ import type {
   TrendDataPoint,
   AssigneeWorkloadItem,
   VersionProgressItem
-} from "$lib/stores/reports.svelte";
+} from "$lib/reports";
 
 /**
  * Export tasks to CSV format.

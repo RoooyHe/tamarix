@@ -33,7 +33,8 @@
   import { Send, Archive, ArchiveRestore, MoreVertical, Paperclip, Eye, EyeOff, MessageSquare, Clock, History, GitBranch, Lock, ShieldAlert } from "@lucide/svelte";
   import { getWorklogsContext } from "$lib/stores/worklogs.svelte";
   import { getRecentTasksContext } from "$lib/stores/recent-tasks.svelte";
-  import { addWatcher, removeWatcher, getWatchers, sendStateEvent } from "$lib/matrix/state-events";
+  import { addWatcher, removeWatcher, getWatchers, setTaskVersion, getTaskVersion } from "$lib/matrix/task-repository";
+  import { sendStateEvent } from "$lib/matrix/state-events";
   import { t } from "$lib/i18n";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
   import { goto } from "$app/navigation";
@@ -45,7 +46,6 @@
   import VersionSelect from "$lib/components/task/VersionSelect.svelte";
   import { getVersionsContext } from "$lib/stores/versions.svelte";
   import {
-    setTaskVersion,
     setApproval,
     setCustomFieldValue,
     addExternalLink,
@@ -54,7 +54,6 @@
     getCustomFieldDefinitions,
     getCustomFieldValues,
     getExternalLinks,
-    getTaskVersion,
     getApprovalConfig
   } from "$lib/matrix/state-events";
   import type { VersionInfo, ApprovalState, ApprovalConfig, CustomFieldDefinition, CustomFieldValue, ExternalLink } from "$lib/matrix/types";

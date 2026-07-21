@@ -3,7 +3,7 @@
   import { Chart, Bars, Grid, Axis, Tooltip } from "layerchart";
   import { scaleLinear, scaleBand } from "d3-scale";
   import { t } from "$lib/i18n";
-  import type { AssigneeWorkloadItem } from "$lib/stores/reports.svelte";
+  import type { AssigneeWorkloadItem } from "$lib/reports";
 
   // Tooltip.Context is a namespace export; cast to any for TS compatibility in templates
   const TooltipContext = Tooltip.Context as any;

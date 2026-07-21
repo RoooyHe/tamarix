@@ -1,7 +1,7 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
 import type { WorklogEntry } from "$lib/matrix/types";
-import { addWorklog as addWorklogEvent, removeWorklog as removeWorklogEvent, getWorklogs as getWorklogsFromRoom } from "$lib/matrix/state-events";
+import { addWorklog as addWorklogEvent, removeWorklog as removeWorklogEvent, getWorklogs as getWorklogsFromRoom } from "$lib/matrix/task-repository";
 import { t } from "$lib/i18n";
 
 const WORKLOGS_CONTEXT_KEY = "tamarix:worklogs";

@@ -2,7 +2,7 @@
   import { ChartContainer, type ChartConfig } from "$lib/components/ui/chart";
   import { ArcChart } from "layerchart";
   import { t } from "$lib/i18n";
-  import type { StatusDistributionItem } from "$lib/stores/reports.svelte";
+  import type { StatusDistributionItem } from "$lib/reports";
 
   interface Props {
     data: StatusDistributionItem[];

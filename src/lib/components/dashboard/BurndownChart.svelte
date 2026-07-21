@@ -4,7 +4,7 @@
   import { scaleLinear, scalePoint } from "d3-scale";
   import { curveMonotoneX } from "d3-shape";
   import { t } from "$lib/i18n";
-  import type { BurndownDataPoint } from "$lib/stores/reports.svelte";
+  import type { BurndownDataPoint } from "$lib/reports";
 
   // Tooltip.Context is a namespace export; cast to any for TS compatibility in templates
   const TooltipContext = Tooltip.Context as any;

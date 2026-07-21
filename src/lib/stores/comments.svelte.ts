@@ -3,7 +3,7 @@ import type { MatrixClient, Room, MatrixEvent, IRoomTimelineData } from "matrix-
 import { RoomEvent, EventType } from "matrix-js-sdk";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events";
 import type { Comment, Attachment } from "$lib/matrix/types";
-import { getMsgType } from "$lib/matrix/media";
+import { getMsgType } from "$lib/file-service";
 import { t } from "$lib/i18n";
 
 const COMMENTS_CONTEXT_KEY = "tamarix:comments";

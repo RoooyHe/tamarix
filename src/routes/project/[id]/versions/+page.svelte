@@ -76,9 +76,7 @@
     if (auth.client && projectId) {
       versions.fetchVersions(auth.client, projectId);
       tasks.fetchTasksFromRooms(auth.client, projectId);
-      versions.startSyncListener(auth.client, projectId);
     }
-    return () => versions.stopSyncListener();
   });
 
   async function handleCreateVersion() {

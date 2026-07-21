@@ -3,7 +3,6 @@ import type { MatrixClient } from "matrix-js-sdk";
 import { Preset, RoomCreateTypeField, RoomType, EventType } from "matrix-js-sdk";
 import type { Project } from "$lib/matrix/types";
 import { roomToProject, isSpaceRoom } from "$lib/matrix/room-utils";
-import { onSyncUpdate } from "$lib/matrix/client";
 import { measureSync } from "$lib/utils/performance";
 import { t } from "$lib/i18n";
 
@@ -27,7 +26,6 @@ function createProjectsState() {
   let projects = $state<Project[]>([]);
   let isLoading = $state(false);
   let error = $state<string | null>(null);
-  let syncCleanup: (() => void) | null = null;
 
   function fetchProjects(client: MatrixClient) {
     isLoading = projects.length === 0;
@@ -45,27 +43,9 @@ function createProjectsState() {
     }
   }
 
-  /**
-   * Start listening for sync updates to automatically refresh project list.
-   * Call this after login when the client is ready.
-   */
-  function startSyncListener(client: MatrixClient) {
-    stopSyncListener();
-    syncCleanup = onSyncUpdate(client, () => {
-      fetchProjects(client);
-    }, { debounceMs: 250 });
-  }
-
-  function stopSyncListener() {
-    if (syncCleanup) {
-      syncCleanup();
-      syncCleanup = null;
-    }
-  }
-
-  async function createProject(
-    client: MatrixClient,
-    name: string,
+    async function createProject(
+      client: MatrixClient,
+      name: string,
     description?: string,
     template: ProjectTemplate = "basic",
     encrypted?: boolean
@@ -160,8 +140,6 @@ function createProjectsState() {
     get isLoading() { return isLoading; },
     get error() { return error; },
     fetchProjects,
-    startSyncListener,
-    stopSyncListener,
     createProject,
     getProjectById,
     updateProject,

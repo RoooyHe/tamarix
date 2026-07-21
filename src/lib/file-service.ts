@@ -1,4 +1,4 @@
-﻿import type { MatrixClient } from "matrix-js-sdk";
+import type { MatrixClient } from "matrix-js-sdk";
 import { t } from "$lib/i18n";
 
 /** Allowed MIME types for upload */
@@ -33,8 +33,9 @@ export interface UploadResult {
 
 /**
  * Upload a file to the Matrix media server.
+ * Validates the file against MIME and size limits before uploading.
  */
-export async function uploadFile(
+export async function upload(
   client: MatrixClient,
   file: File,
   options?: UploadOptions
@@ -42,8 +43,7 @@ export async function uploadFile(
   const allowedMimeTypes = options?.allowedMimeTypes ?? ALLOWED_MIME_TYPES;
   const maxSize = options?.maxSize ?? DEFAULT_MAX_SIZE;
 
-  // Validate
-  const validation = validateFile(file, allowedMimeTypes, maxSize);
+  const validation = validate(file, allowedMimeTypes, maxSize);
   if (!validation.valid) {
     throw new Error(validation.error);
   }
@@ -67,31 +67,29 @@ export async function uploadFile(
 }
 
 /**
- * Convert an mxc:// URL to an HTTP download URL.
- * Returns null if the URL cannot be resolved.
+ * Get an HTTP download URL for an mxc:// URI.
+ * Optionally specify thumbnail dimensions and crop method.
+ *
+ * @param client - Matrix client
+ * @param mxcUrl - The mxc:// URI to resolve
+ * @param thumbnail - Optional thumbnail parameters (width, height, method)
+ * @returns The HTTP URL, or null if the URI cannot be resolved
  */
-export function getDownloadUrl(client: MatrixClient, mxcUrl: string): string | null {
-  return client.mxcUrlToHttp(mxcUrl) ?? null;
-}
-
-/**
- * Get a thumbnail URL for an image/video mxc:// URL.
- * Returns null if thumbnails are not supported or the URL cannot be resolved.
- */
-export function getThumbnailUrl(
+export function getUrl(
   client: MatrixClient,
   mxcUrl: string,
-  width: number,
-  height: number,
-  method: "crop" | "scale" = "scale"
+  thumbnail?: { width: number; height: number; method?: "crop" | "scale" }
 ): string | null {
-  return client.mxcUrlToHttp(mxcUrl, width, height, method) ?? null;
+  if (thumbnail) {
+    return client.mxcUrlToHttp(mxcUrl, thumbnail.width, thumbnail.height, thumbnail.method ?? "scale") ?? null;
+  }
+  return client.mxcUrlToHttp(mxcUrl) ?? null;
 }
 
 /**
  * Validate a file against a MIME whitelist and size limit.
  */
-export function validateFile(
+export function validate(
   file: File,
   allowedMimeTypes: string[] = ALLOWED_MIME_TYPES,
   maxSize: number = DEFAULT_MAX_SIZE
@@ -107,7 +105,7 @@ export function validateFile(
 }
 
 /**
- * Format file size for display.
+ * Format file size in bytes to a human-readable string.
  */
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

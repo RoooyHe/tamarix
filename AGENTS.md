@@ -71,3 +71,17 @@ src/routes/
 - Do not use `export let` in Svelte 5 components — use `$props()` instead
 - Do not use inline Tailwind class strings on shadcn-svelte components — use `tv()` variants
 - Do not add generic `console.log` or debug output
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` at repo root, ADRs in `docs/adr/`. See `docs/agents/domain.md`.
