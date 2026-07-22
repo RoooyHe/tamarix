@@ -1,3 +1,4 @@
+import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
 import type { IThreepid } from "matrix-js-sdk/lib/@types/threepids";
 import {
@@ -8,6 +9,8 @@ import {
   type ThreePidBindSession
 } from "$lib/matrix/account";
 import { formatMatrixError } from "$lib/matrix/errors";
+
+const ACCOUNT_CONTEXT_KEY = "tamarix:account";
 
 function createAccountStore() {
   let threePids = $state<IThreepid[]>([]);
@@ -93,9 +96,14 @@ function createAccountStore() {
   };
 }
 
-let accountStore: ReturnType<typeof createAccountStore> | null = null;
+export type AccountStore = ReturnType<typeof createAccountStore>;
 
-export function getAccountStore() {
-  accountStore ??= createAccountStore();
-  return accountStore;
+export function setAccountContext() {
+  const account = createAccountStore();
+  setContext(ACCOUNT_CONTEXT_KEY, account);
+  return account;
+}
+
+export function getAccountContext(): AccountStore {
+  return getContext<AccountStore>(ACCOUNT_CONTEXT_KEY);
 }

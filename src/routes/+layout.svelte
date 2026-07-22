@@ -5,9 +5,9 @@
   import { setProjectsContext } from "$lib/stores/projects.svelte";
   import { setCommentsContext } from "$lib/stores/comments.svelte";
   import { setNotificationsContext } from "$lib/stores/notifications.svelte";
-  import { setWorklogsContext } from "$lib/stores/worklogs.svelte";
-  import { setVersionsContext } from "$lib/stores/versions.svelte";
   import { setRecentTasksContext } from "$lib/stores/recent-tasks.svelte";
+  import { setIntegrationsContext } from "$lib/stores/integrations.svelte";
+  import { setAccountContext } from "$lib/stores/account.svelte";
   import { setUiContext } from "$lib/stores/ui.svelte";
   import AppShell from "$lib/components/layout/AppShell.svelte";
   import KeyboardShortcuts from "$lib/components/common/KeyboardShortcuts.svelte";
@@ -16,10 +16,8 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { initLocale, t } from "$lib/i18n";
-  import { isInputElement } from "$lib/utils/keyboard";
-  import type { TaskStatus } from "$lib/matrix/types";
-  import { TASK_STATUS_ORDER } from "$lib/matrix/types";
   import { createSyncManager } from "$lib/matrix/sync-manager";
+  import { useKeyboard } from "$lib/hooks/use-keyboard";
 
   let { children } = $props();
   const RESTORE_BLOCKING_TIMEOUT_MS = 1500;
@@ -30,9 +28,9 @@
   let projects = setProjectsContext();
   let comments = setCommentsContext();
   let notifications = setNotificationsContext();
-  let worklogs = setWorklogsContext();
-  let versions = setVersionsContext();
   let recentTasks = setRecentTasksContext();
+  let integrations = setIntegrationsContext();
+  let account = setAccountContext();
   let ui = setUiContext();
 
   // Sync manager: stores register refresh callbacks, layout manages lifecycle
@@ -40,8 +38,14 @@
   syncManager.subscribe((client) => projects.fetchProjects(client));
 
   let isRestoring = $state(true);
-  let shortcutsOpen = $state(false);
-  let commandPaletteOpen = $state(false);
+  let shortcutsOpen = $state({ value: false });
+  let commandPaletteOpen = $state({ value: false });
+
+  const handleKeydown = useKeyboard({
+    get isLoggedIn() { return auth.isLoggedIn; },
+    shortcutsOpen,
+    commandPaletteOpen
+  });
 
   onMount(async () => {
     initLocale();
@@ -65,106 +69,15 @@
         projects.fetchProjects(client);
         syncManager.start(client);
         notifications.startSyncListener(client);
-        notifications.startDueCheckTimer(client, () => tasks.tasks);
+        notifications.startDueCheck(() => tasks.tasks);
       } else {
         syncManager.stop();
         notifications.stopSyncListener();
-        notifications.stopDueCheckTimer();
+        notifications.stopDueCheck();
       }
     });
   });
 
-  // P4: Global keyboard shortcuts listener
-  function handleKeydown(e: KeyboardEvent) {
-    // Always allow Cmd/Ctrl+K and Esc
-    const isCmdK = (e.metaKey || e.ctrlKey) && e.key === "k";
-    const isEsc = e.key === "Escape";
-
-    if (isCmdK) {
-      e.preventDefault();
-      commandPaletteOpen = !commandPaletteOpen;
-      return;
-    }
-
-    if (isEsc) {
-      // Close any open dialog/panel
-      if (shortcutsOpen) {
-        shortcutsOpen = false;
-        return;
-      }
-      if (commandPaletteOpen) {
-        commandPaletteOpen = false;
-        return;
-      }
-      return;
-    }
-
-    // For single-letter shortcuts, check if user is typing in an input
-    if (isInputElement(e.target as HTMLElement)) return;
-
-    if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      shortcutsOpen = !shortcutsOpen;
-      return;
-    }
-
-    // Only process other shortcuts when logged in
-    if (!auth.isLoggedIn) return;
-
-    // N: New task
-    if (e.key === "n" || e.key === "N") {
-      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent("tamarix:shortcut", { detail: { action: "new_task" } }));
-        return;
-      }
-    }
-
-    // E: Edit current task
-    if (e.key === "e" || e.key === "E") {
-      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent("tamarix:shortcut", { detail: { action: "edit" } }));
-        return;
-      }
-    }
-
-    // 1-5: Set task status
-    if (e.key >= "1" && e.key <= "5" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      const statusIndex = parseInt(e.key) - 1;
-      if (statusIndex < TASK_STATUS_ORDER.length) {
-        const targetStatus = TASK_STATUS_ORDER[statusIndex];
-        window.dispatchEvent(new CustomEvent("tamarix:shortcut", { detail: { action: "set_status", status: targetStatus } }));
-      }
-      return;
-    }
-
-    // /: Focus search
-    if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      window.dispatchEvent(new CustomEvent("tamarix:shortcut", { detail: { action: "focus_search" } }));
-      return;
-    }
-
-    if ((e.key === "t" || e.key === "T") && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      window.dispatchEvent(new CustomEvent("tamarix:shortcut", { detail: { action: "toggle_tag" } }));
-      return;
-    }
-
-    if ((e.key === "a" || e.key === "A") && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      window.dispatchEvent(new CustomEvent("tamarix:shortcut", { detail: { action: "assign" } }));
-      return;
-    }
-
-    if ((e.key === "d" || e.key === "D") && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      window.dispatchEvent(new CustomEvent("tamarix:shortcut", { detail: { action: "due_date" } }));
-      return;
-    }
-  }
 </script>
 
 <svelte:head>
@@ -185,5 +98,5 @@
   {@render children()}
 {/if}
 
-<KeyboardShortcuts bind:open={shortcutsOpen} />
-<CommandPalette bind:open={commandPaletteOpen} />
+<KeyboardShortcuts bind:open={shortcutsOpen.value} />
+<CommandPalette bind:open={commandPaletteOpen.value} />

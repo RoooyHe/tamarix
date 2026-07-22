@@ -3,13 +3,14 @@
   import { getAuthContext } from "$lib/stores/auth.svelte";
   import { getProjectsContext } from "$lib/stores/projects.svelte";
   import { getTasksContext } from "$lib/stores/tasks.svelte";
-  import { getVersionsContext } from "$lib/stores/versions.svelte";
+  import { getVersions } from "$lib/matrix/project-versions";
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
   import { Select, SelectContent, SelectItem, SelectTrigger } from "$lib/components/ui/select";
   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "$lib/components/ui/dropdown-menu";
   import { ArrowLeft, BarChart3, TrendingUp, Users, GitBranch, Download, Image, FileText } from "@lucide/svelte";
   import { t } from "$lib/i18n";
+  import type { VersionInfo } from "$lib/matrix/types";
   import {
     getBurndownData,
     getStatusDistribution,
@@ -35,11 +36,19 @@
   let auth = getAuthContext();
   let projects = getProjectsContext();
   let tasksStore = getTasksContext();
-  let versionsStore = getVersionsContext();
 
   let projectId = $derived(decodeURIComponent($page.params.id ?? ""));
   let project = $derived(projects.getProjectById(projectId));
   let activeTasks = $derived(tasksStore.tasks.filter(t => !t.archived));
+
+  // Versions
+  let versions = $state<VersionInfo[]>([]);
+  $effect(() => {
+    if (auth.client && projectId) {
+      const room = auth.client.getRoom(projectId);
+      versions = room ? getVersions(room) : [];
+    }
+  });
 
   // Time range
   type TimeRange = 7 | 30 | 90 | 0; // 0 = all
@@ -50,7 +59,7 @@
   let statusDistData = $derived(getStatusDistribution(activeTasks));
   let trendData = $derived(getTrendData(activeTasks, timeRange || 365));
   let assigneeData = $derived(getAssigneeWorkload(activeTasks));
-  let versionData = $derived(getVersionProgress(activeTasks, versionsStore.versions));
+  let versionData = $derived(getVersionProgress(activeTasks, versions));
 
   // Refs for PNG export
   let burndownRef: HTMLElement | null = $state(null);

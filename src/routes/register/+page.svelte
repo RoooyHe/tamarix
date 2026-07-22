@@ -13,6 +13,7 @@
     registerWithPassword,
     type RegistrationResult
   } from "$lib/matrix/auth";
+  import { createClientManager } from "$lib/matrix/client-manager";
   import { formatMatrixError } from "$lib/matrix/errors";
   import {
     createAuthDict,
@@ -35,6 +36,7 @@
   let isDiscovering = $state(false);
   let isSubmitting = $state(false);
   let uiaSession = $state<UiaSession | null>(null);
+  const manager = createClientManager();
 
   let currentStep = $derived(uiaSession ? getCurrentUiaStep(uiaSession) : null);
   let steps = $derived(uiaSession ? getUiaSteps(uiaSession) : []);
@@ -90,6 +92,8 @@
         username,
         password,
         auth
+      }, async (creds) => {
+        await manager.initAndStart(creds);
       });
       await handleRegistrationResult(result);
     } catch (e) {

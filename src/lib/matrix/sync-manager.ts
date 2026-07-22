@@ -1,5 +1,6 @@
 import type { MatrixClient } from "matrix-js-sdk";
-import { onSyncUpdate } from "./client";
+import { onSyncUpdate } from "./client-manager";
+import { initTimelineBus, stopTimelineBus } from "./timeline-bus";
 
 type RefreshFn = (client: MatrixClient) => void;
 
@@ -40,6 +41,7 @@ export function createSyncManager() {
    */
   function start(client: MatrixClient) {
     stop();
+    initTimelineBus(client);
     cleanup = onSyncUpdate(client, () => {
       for (const fn of fns) {
         fn(client);
@@ -55,6 +57,7 @@ export function createSyncManager() {
       cleanup();
       cleanup = null;
     }
+    stopTimelineBus();
   }
 
   return { subscribe, start, stop };

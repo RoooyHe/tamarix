@@ -1,6 +1,6 @@
 import type { MatrixClient } from "matrix-js-sdk";
 import { isTaskRoom } from "./room-utils";
-import { getStateEvent } from "./state-events";
+import { getStateEvent } from "./state-primitives";
 import { TAMARIX_EVENT_TYPES } from "./types";
 
 const TICKET_ID_REGEX = /^TAM-(\d+)$/;

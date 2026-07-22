@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { RoomEvent, type MatrixEvent, type Room } from "matrix-js-sdk";
+  import type { MatrixEvent, Room } from "matrix-js-sdk";
+  import { onTimelineEvent } from "$lib/matrix/timeline-bus";
   import { Separator } from "$lib/components/ui/separator";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -10,35 +11,28 @@
   import { TAMARIX_EVENT_TYPES } from "$lib/matrix/types";
   import type { MatrixClient } from "matrix-js-sdk";
   import type { CommentsStore } from "$lib/stores/comments.svelte";
-  import type { VersionsStore } from "$lib/stores/versions.svelte";
+  import type { VersionInfo } from "$lib/matrix/types";
   import ApprovalBadge from "$lib/components/task/ApprovalBadge.svelte";
   import CustomFieldRenderer from "$lib/components/task/CustomFieldRenderer.svelte";
   import VersionSelect from "$lib/components/task/VersionSelect.svelte";
-  import {
-    setApproval,
-    setCustomFieldValue,
-    addExternalLink,
-    removeExternalLink,
-    getApproval,
-    getCustomFieldDefinitions,
-    getCustomFieldValues,
-    getExternalLinks,
-    getApprovalConfig,
-  } from "$lib/matrix/state-events";
-  import { setTaskVersion, getTaskVersion } from "$lib/matrix/task-repository";
-  import { sendStateEvent } from "$lib/matrix/state-events";
+  import { getApproval, getApprovalConfig } from "$lib/matrix/approvals";
+  import { syncApprovalFromReactions, requestApproval, approve, reject } from "$lib/matrix/approval-sync";
+  import { setCustomFieldValue, getCustomFieldDefinitions, getCustomFieldValues } from "$lib/matrix/custom-fields";
+  import { addExternalLink, removeExternalLink, getExternalLinks } from "$lib/matrix/external-links";
+  import { sendStateEvent } from "$lib/matrix/state-primitives";
+  import { setTaskVersion, getTaskVersion } from "$lib/matrix/task-versions";
   import { isValidUrl, sanitizeUrl } from "$lib/utils/url";
 
   interface Props {
     client: MatrixClient;
     task: Task;
     projectId: string;
-    versionsStore: VersionsStore;
+    versions: VersionInfo[];
     commentsStore: CommentsStore;
     onRefresh: () => void;
   }
 
-  let { client, task, projectId, versionsStore, commentsStore, onRefresh }: Props = $props();
+  let { client, task, projectId, versions, commentsStore, onRefresh }: Props = $props();
 
   // P4 state
   let approvalState = $state<ApprovalState | null>(null);
@@ -69,68 +63,22 @@
     }
   });
 
-  // Approval reaction counting
-  function getApprovalReactionCounts(room: Room): { approvals: number; rejections: number } {
-    const approvals = new Set<string>();
-    const rejections = new Set<string>();
-    const events = room.getLiveTimeline().getEvents();
-
-    for (const event of events) {
-      if (event.getType() !== "m.reaction") continue;
-      const content = event.getContent() as { "m.relates_to"?: { key?: string; event_id?: string } };
-      const key = content["m.relates_to"]?.key;
-      const sender = event.getSender() ?? event.getId() ?? "";
-      if (!key) continue;
-      if (key === "+1" || key === "👍" || key === "👍️") approvals.add(sender);
-      if (key === "-1" || key === "👎" || key === "👎️") rejections.add(sender);
-    }
-
-    return { approvals: approvals.size, rejections: rejections.size };
-  }
-
-  async function syncApprovalFromReactions() {
-    if (!task || !approvalState) return;
-    const room = client.getRoom(task.roomId);
-    if (!room) return;
-
-    const counts = getApprovalReactionCounts(room);
-    if (counts.approvals === 0 && counts.rejections === 0) return;
-
-    const nextStatus: ApprovalStatus =
-      counts.rejections > 0
-        ? "rejected"
-        : counts.approvals >= approvalState.requiredApprovals
-          ? "approved"
-          : "pending";
-
-    if (
-      approvalState.currentApprovals === counts.approvals &&
-      approvalState.status === nextStatus
-    ) {
-      return;
-    }
-
-    await setApproval(client, task.roomId, {
-      status: nextStatus,
-      requiredApprovals: approvalState.requiredApprovals,
-      currentApprovals: counts.approvals
-    });
-    approvalState = getApproval(room);
-  }
-
   // Listen for reaction events to sync approval
   $effect(() => {
-    if (!task?.roomId) return;
+    if (!task?.roomId || !approvalState) return;
     const roomId = task.roomId;
 
-    const handler = (event: MatrixEvent, room: Room | undefined) => {
+    const unsub = onTimelineEvent((event, room) => {
       if (!room || room.roomId !== roomId || event.getType() !== "m.reaction") return;
-      void syncApprovalFromReactions();
-    };
+      void syncApprovalFromReactions(client, roomId, approvalState!).then(updated => {
+        if (updated) approvalState = updated;
+      });
+    });
 
-    client.on(RoomEvent.Timeline, handler);
-    void syncApprovalFromReactions();
-    return () => client.removeListener(RoomEvent.Timeline, handler);
+    void syncApprovalFromReactions(client, roomId, approvalState).then(updated => {
+      if (updated) approvalState = updated;
+    });
+    return unsub;
   });
 
   // Version change handler
@@ -145,37 +93,20 @@
 
   // Approval handlers
   async function handleRequestApproval() {
-    await setApproval(client, task.roomId, {
-      status: "pending",
-      requiredApprovals: Math.max(1, approvalConfig.requiredApprovals),
-      currentApprovals: 0
-    });
-    const room = client.getRoom(task.roomId);
-    if (room) approvalState = getApproval(room);
+    const updated = await requestApproval(client, task.roomId, approvalConfig.requiredApprovals);
+    if (updated) approvalState = updated;
   }
 
   async function handleApprove() {
     if (!approvalState) return;
-    const newCount = approvalState.currentApprovals + 1;
-    const newStatus: ApprovalStatus = newCount >= approvalState.requiredApprovals ? "approved" : "pending";
-    await setApproval(client, task.roomId, {
-      status: newStatus,
-      requiredApprovals: approvalState.requiredApprovals,
-      currentApprovals: newCount
-    });
-    const room = client.getRoom(task.roomId);
-    if (room) approvalState = getApproval(room);
+    const updated = await approve(client, task.roomId, approvalState);
+    if (updated) approvalState = updated;
   }
 
   async function handleReject() {
     if (!approvalState) return;
-    await setApproval(client, task.roomId, {
-      status: "rejected",
-      requiredApprovals: approvalState.requiredApprovals,
-      currentApprovals: approvalState.currentApprovals
-    });
-    const room = client.getRoom(task.roomId);
-    if (room) approvalState = getApproval(room);
+    const updated = await reject(client, task.roomId, approvalState);
+    if (updated) approvalState = updated;
   }
 
   // Custom field change handler
@@ -269,7 +200,7 @@
   <div class="flex items-center gap-2">
     <span class="text-xs text-muted-foreground">{t("version.link_task")}</span>
     <VersionSelect
-      versions={versionsStore.versions}
+      versions={versions}
       value={currentVersion}
       onValueChange={handleVersionChange}
     />

@@ -1,7 +1,7 @@
 import type { Room } from "matrix-js-sdk";
 import { EventType } from "matrix-js-sdk";
 import type { Task, Project, EstimateUnit } from "./types";
-import { getStateEvent } from "./state-events";
+import { getStateEvent } from "./state-primitives";
 import { TAMARIX_EVENT_TYPES } from "./types";
 
 /**

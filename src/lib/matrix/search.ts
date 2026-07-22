@@ -1,5 +1,5 @@
 import type { Task, TaskStatus, Priority, TaskType } from "./types";
-import { getCustomFieldValues } from "./state-events";
+import { getCustomFieldValues } from "./custom-fields";
 import type { MatrixClient } from "matrix-js-sdk";
 
 /**

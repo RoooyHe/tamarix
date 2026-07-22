@@ -1,8 +1,11 @@
+import { getContext, setContext } from "svelte";
 import {
   INTEGRATION_PROVIDERS,
   type IntegrationConnection,
   type IntegrationProvider
 } from "$lib/integrations/types";
+
+const INTEGRATIONS_CONTEXT_KEY = "tamarix:integrations";
 
 interface OAuthStartResponse {
   url?: string;
@@ -80,9 +83,14 @@ function createIntegrationsStore() {
   };
 }
 
-let integrationsStore: ReturnType<typeof createIntegrationsStore> | null = null;
+export type IntegrationsStore = ReturnType<typeof createIntegrationsStore>;
 
-export function getIntegrationsStore() {
-  integrationsStore ??= createIntegrationsStore();
-  return integrationsStore;
+export function setIntegrationsContext() {
+  const integrations = createIntegrationsStore();
+  setContext(INTEGRATIONS_CONTEXT_KEY, integrations);
+  return integrations;
+}
+
+export function getIntegrationsContext(): IntegrationsStore {
+  return getContext<IntegrationsStore>(INTEGRATIONS_CONTEXT_KEY);
 }

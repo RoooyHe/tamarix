@@ -1,9 +1,10 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient, Room, MatrixEvent, IRoomTimelineData } from "matrix-js-sdk";
-import { RoomEvent, EventType } from "matrix-js-sdk";
+import { EventType } from "matrix-js-sdk";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events";
 import type { Comment, Attachment } from "$lib/matrix/types";
 import { getMsgType } from "$lib/file-service";
+import { onTimelineEvent } from "$lib/matrix/timeline-bus";
 import { t } from "$lib/i18n";
 
 const COMMENTS_CONTEXT_KEY = "tamarix:comments";
@@ -78,21 +79,15 @@ function createCommentsState() {
 
   function startListening(client: MatrixClient, roomId: string) {
     stopListening();
-    const room = client.getRoom(roomId);
-    if (!room) return;
 
-    const handler = (event: MatrixEvent, room_: Room | undefined, toStartOfTimeline: boolean | undefined, removed: boolean, data: IRoomTimelineData) => {
+    cleanup = onTimelineEvent((event, room_, toStartOfTimeline) => {
       if (!room_ || room_.roomId !== roomId) return;
       if (event.getType() !== EventType.RoomMessage) return;
-      // Only add new events (not from initial sync/pagination)
       if (toStartOfTimeline) return;
 
       const newComment = parseMessageEvent(event);
       comments = [...comments, newComment];
-    };
-
-    client.on(RoomEvent.Timeline, handler);
-    cleanup = () => client.removeListener(RoomEvent.Timeline, handler);
+    });
   }
 
   function stopListening() {

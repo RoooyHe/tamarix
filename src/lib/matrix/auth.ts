@@ -8,17 +8,11 @@ import {
   type RegisterRequest,
   type RegisterResponse
 } from "matrix-js-sdk";
-import { initClient, startClient } from "./client";
+import { persistCredentials } from "./client-manager";
 import { getMatrixErrorData } from "./errors";
 import { parseUiaSession, type UiaSession } from "./uia";
 
-const STORAGE_KEYS = {
-  BASE_URL: "tamarix.base_url",
-  ACCESS_TOKEN: "tamarix.access_token",
-  USER_ID: "tamarix.user_id",
-  DEVICE_ID: "tamarix.device_id",
-  SSO_STATE: "tamarix.sso_state"
-} as const;
+const SSO_STATE_KEY = "tamarix.sso_state";
 
 export interface RegistrationOptions {
   baseUrl: string;
@@ -83,7 +77,10 @@ export async function checkUsernameAvailable(baseUrl: string, username: string):
   return await tempClient.isUsernameAvailable(username);
 }
 
-export async function registerWithPassword(options: RegistrationOptions): Promise<RegistrationResult> {
+export async function registerWithPassword(
+  options: RegistrationOptions,
+  onRegistered?: (creds: { baseUrl: string; accessToken: string; userId: string; deviceId: string }) => Promise<void>
+): Promise<RegistrationResult> {
   const tempClient = createClient({ baseUrl: options.baseUrl });
   const request: RegisterRequest = {
     username: options.username,
@@ -95,7 +92,7 @@ export async function registerWithPassword(options: RegistrationOptions): Promis
 
   try {
     const response = await tempClient.registerRequest(request);
-    return await handleRegistrationResponse(options.baseUrl, response);
+    return await handleRegistrationResponse(options.baseUrl, response, onRegistered);
   } catch (error) {
     const uiaData = getMatrixErrorData(error);
     const uiaSession = parseUiaSession(uiaData);
@@ -108,27 +105,25 @@ export async function registerWithPassword(options: RegistrationOptions): Promis
 
 async function handleRegistrationResponse(
   baseUrl: string,
-  response: RegisterResponse
+  response: RegisterResponse,
+  onRegistered?: (creds: { baseUrl: string; accessToken: string; userId: string; deviceId: string }) => Promise<void>
 ): Promise<RegistrationResult> {
   if (!response.access_token || !response.device_id) {
     return { kind: "inhibit_login", userId: response.user_id };
   }
 
-  persistCredentials({
+  const creds = {
     baseUrl,
     accessToken: response.access_token,
     userId: response.user_id,
     deviceId: response.device_id
-  });
+  };
 
-  initClient({
-    baseUrl,
-    accessToken: response.access_token,
-    userId: response.user_id,
-    deviceId: response.device_id
-  });
+  persistCredentials(creds);
 
-  await startClient();
+  if (onRegistered) {
+    await onRegistered(creds);
+  }
 
   return {
     kind: "success",
@@ -159,14 +154,14 @@ export function createSsoLoginState(
     createdAt: Date.now()
   };
 
-  sessionStorage.setItem(STORAGE_KEYS.SSO_STATE, JSON.stringify(state));
+  sessionStorage.setItem(SSO_STATE_KEY, JSON.stringify(state));
   sessionStorage.setItem("tamarix.sso_base_url", baseUrl);
   return state;
 }
 
 export function consumeSsoLoginState(expectedState?: string | null): SsoLoginState | null {
-  const raw = sessionStorage.getItem(STORAGE_KEYS.SSO_STATE);
-  sessionStorage.removeItem(STORAGE_KEYS.SSO_STATE);
+  const raw = sessionStorage.getItem(SSO_STATE_KEY);
+  sessionStorage.removeItem(SSO_STATE_KEY);
 
   if (!raw) return null;
 
@@ -206,24 +201,4 @@ export function buildSsoRedirectUrl({
   }
 
   return redirect.toString();
-}
-
-/**
- * Persist credentials to localStorage.
- */
-function persistCredentials({
-  baseUrl,
-  accessToken,
-  userId,
-  deviceId
-}: {
-  baseUrl: string;
-  accessToken: string;
-  userId: string;
-  deviceId: string;
-}): void {
-  localStorage.setItem(STORAGE_KEYS.BASE_URL, baseUrl);
-  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-  localStorage.setItem(STORAGE_KEYS.USER_ID, userId);
-  localStorage.setItem(STORAGE_KEYS.DEVICE_ID, deviceId);
 }

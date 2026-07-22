@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getAuthContext } from "$lib/stores/auth.svelte";
-  import { getAccountStore } from "$lib/stores/account.svelte";
+  import { getAccountContext } from "$lib/stores/account.svelte";
   import { getAsStatusStore } from "$lib/stores/as-status.svelte";
-  import { getIntegrationsStore } from "$lib/stores/integrations.svelte";
+  import { getIntegrationsContext } from "$lib/stores/integrations.svelte";
   import { getUiContext } from "$lib/stores/ui.svelte";
   import { Alert, AlertDescription } from "$lib/components/ui/alert";
   import { Badge } from "$lib/components/ui/badge";
@@ -15,10 +15,10 @@
   import type { IntegrationProvider } from "$lib/integrations/types";
 
   let auth = getAuthContext();
-  let account = getAccountStore();
+  let account = getAccountContext();
   let ui = getUiContext();
   let asStatus = getAsStatusStore();
-  let integrations = getIntegrationsStore();
+  let integrations = getIntegrationsContext();
 
   let asUrlInput = $state(asStatus.asUrl);
   let healthCheckResult = $state<"ok" | "failed" | null>(null);

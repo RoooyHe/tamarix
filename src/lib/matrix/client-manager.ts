@@ -1,7 +1,6 @@
-import { createClient, type MatrixClient } from "matrix-js-sdk";
-import { initClient, startClient, stopClient, getClient as getRawClient } from "./client";
+import { createClient, type MatrixClient, ClientEvent, Filter } from "matrix-js-sdk";
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   BASE_URL: "tamarix.base_url",
   ACCESS_TOKEN: "tamarix.access_token",
   USER_ID: "tamarix.user_id",
@@ -9,29 +8,155 @@ const STORAGE_KEYS = {
 } as const;
 
 /**
+ * Persist Matrix credentials to localStorage.
+ */
+export function persistCredentials(opts: {
+  baseUrl: string;
+  accessToken: string;
+  userId: string;
+  deviceId: string;
+}) {
+  localStorage.setItem(STORAGE_KEYS.BASE_URL, opts.baseUrl);
+  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, opts.accessToken);
+  localStorage.setItem(STORAGE_KEYS.USER_ID, opts.userId);
+  localStorage.setItem(STORAGE_KEYS.DEVICE_ID, opts.deviceId);
+}
+
+// ─── Client lifecycle (moved from client.ts) ──────────────────────
+
+const INITIAL_SYNC_LIMIT = 5;
+const START_CLIENT_TIMEOUT_MS = 60000;
+
+function createSyncFilter(c: MatrixClient): Filter {
+  const filter = new Filter(c.getUserId());
+  filter.setTimelineLimit(INITIAL_SYNC_LIMIT);
+  filter.setIncludeLeaveRooms(false);
+  filter.setLazyLoadMembers(true);
+  filter.setUnreadThreadNotifications(true);
+  return filter;
+}
+
+function getSyncOptions(c: MatrixClient) {
+  return {
+    initialSyncLimit: INITIAL_SYNC_LIMIT,
+    includeArchivedRooms: false,
+    filter: createSyncFilter(c),
+    lazyLoadMembers: true,
+    threadSupport: true,
+    disablePresence: true
+  };
+}
+
+async function startClientSync(c: MatrixClient, options: { timeoutMs?: number; waitForSync?: boolean } = {}): Promise<void> {
+  const timeoutMs = options.timeoutMs ?? START_CLIENT_TIMEOUT_MS;
+  const waitForSync = options.waitForSync ?? true;
+
+  if (!waitForSync) {
+    c.startClient(getSyncOptions(c));
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+      c.removeListener(ClientEvent.Sync, onSync);
+    };
+
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback();
+    };
+
+    const onSync = (state: string) => {
+      if (state === "PREPARED" || state === "SYNCING") {
+        finish(resolve);
+      } else if (state === "ERROR") {
+        finish(() => reject(new Error("Matrix sync failed")));
+      }
+    };
+
+    timeout = setTimeout(() => {
+      void c.stopClient();
+      finish(() => reject(new Error("Matrix sync timed out")));
+    }, timeoutMs);
+
+    c.on(ClientEvent.Sync, onSync);
+    c.startClient(getSyncOptions(c));
+  });
+}
+
+/**
+ * Register a callback that fires on sync updates (PREPARED or SYNCING).
+ * Sync can be noisy, so callbacks are debounced by default.
+ */
+export function onSyncUpdate(
+  client: MatrixClient,
+  callback: () => void,
+  options: { debounceMs?: number; immediatePrepared?: boolean } = {}
+): () => void {
+  const debounceMs = options.debounceMs ?? 200;
+  const immediatePrepared = options.immediatePrepared ?? true;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let preparedFired = false;
+
+  const run = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    callback();
+  };
+
+  const handler = (state: string) => {
+    if (state !== "PREPARED" && state !== "SYNCING") return;
+
+    if (state === "PREPARED" && immediatePrepared && !preparedFired) {
+      preparedFired = true;
+      run();
+      return;
+    }
+
+    if (debounceMs <= 0) {
+      run();
+      return;
+    }
+
+    if (timer) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(run, debounceMs);
+  };
+
+  client.on(ClientEvent.Sync, handler);
+  return () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    client.removeListener(ClientEvent.Sync, handler);
+  };
+}
+
+// ─── Client Manager ──────────────────────────────────────────────
+
+/**
  * Consolidated client lifecycle manager.
  *
- * Wraps the raw client singleton (client.ts) and auth operations (auth.ts)
- * into a small interface: login, restore, logout, and accessors.
+ * Owns the Matrix client lifecycle: login, restore, logout.
+ * All credential persistence goes through this module.
  * The auth.svelte.ts store wraps this with Svelte reactivity.
  */
 export function createClientManager() {
   let _client: MatrixClient | null = null;
   let _userId: string | null = null;
-
-  // ── Private helpers ──────────────────────────────────────────
-
-  function persistCredentials(opts: {
-    baseUrl: string;
-    accessToken: string;
-    userId: string;
-    deviceId: string;
-  }) {
-    localStorage.setItem(STORAGE_KEYS.BASE_URL, opts.baseUrl);
-    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, opts.accessToken);
-    localStorage.setItem(STORAGE_KEYS.USER_ID, opts.userId);
-    localStorage.setItem(STORAGE_KEYS.DEVICE_ID, opts.deviceId);
-  }
 
   function clearCredentials() {
     localStorage.removeItem(STORAGE_KEYS.BASE_URL);
@@ -40,27 +165,33 @@ export function createClientManager() {
     localStorage.removeItem(STORAGE_KEYS.DEVICE_ID);
   }
 
+  function initClient(opts: {
+    baseUrl: string;
+    accessToken: string;
+    userId: string;
+    deviceId?: string;
+  }): MatrixClient {
+    _client = createClient({
+      baseUrl: opts.baseUrl,
+      accessToken: opts.accessToken,
+      userId: opts.userId,
+      deviceId: opts.deviceId ?? "TAMARIX_DEVICE",
+      timelineSupport: true
+    });
+    _userId = opts.userId;
+    return _client;
+  }
+
   async function initAndStart(opts: {
     baseUrl: string;
     accessToken: string;
     userId: string;
     deviceId: string;
   }) {
-    _client = initClient({
-      baseUrl: opts.baseUrl,
-      accessToken: opts.accessToken,
-      userId: opts.userId,
-      deviceId: opts.deviceId
-    });
-    _userId = opts.userId;
-    await startClient();
+    initClient(opts);
+    await startClientSync(_client!);
   }
 
-  // ── Public API ───────────────────────────────────────────────
-
-  /**
-   * Login with password, persist credentials, and start the client sync.
-   */
   async function login(baseUrl: string, username: string, password: string) {
     const tempClient = createClient({ baseUrl });
     const response = await tempClient.loginRequest({
@@ -90,9 +221,6 @@ export function createClientManager() {
     });
   }
 
-  /**
-   * Login with an SSO token, persist credentials, and start the client sync.
-   */
   async function loginWithToken(baseUrl: string, loginToken: string) {
     const tempClient = createClient({ baseUrl });
     const response = await tempClient.loginRequest({
@@ -121,10 +249,6 @@ export function createClientManager() {
     });
   }
 
-  /**
-   * Try to restore a previous session from localStorage.
-   * Returns the user ID if successful, or null if no valid session exists.
-   */
   async function restore(): Promise<string | null> {
     const baseUrl = localStorage.getItem(STORAGE_KEYS.BASE_URL);
     const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -136,21 +260,20 @@ export function createClientManager() {
     }
 
     try {
-      _client = initClient({
+      initClient({
         baseUrl,
         accessToken,
         userId,
         deviceId: deviceId ?? undefined
       });
-      _userId = userId;
 
-      const session = await _client.whoami();
+      const session = await _client!.whoami();
       if (session.user_id !== userId) {
         throw new Error("Stored Matrix session user mismatch");
       }
 
       // Start sync non-blocking (deferred via rAF)
-      void startClient({ waitForSync: false }).catch(() => undefined);
+      void startClientSync(_client!, { waitForSync: false }).catch(() => undefined);
       return userId;
     } catch {
       clearCredentials();
@@ -160,9 +283,6 @@ export function createClientManager() {
     }
   }
 
-  /**
-   * Logout: stop the client, call the logout API, and clear credentials.
-   */
   async function logout() {
     try {
       if (_client) {
@@ -171,14 +291,14 @@ export function createClientManager() {
     } catch {
       // Ignore logout API errors — we'll clear local state anyway
     } finally {
-      await stopClient();
+      if (_client) {
+        await _client.stopClient();
+      }
       clearCredentials();
       _client = null;
       _userId = null;
     }
   }
-
-  // ── Accessors ─────────────────────────────────────────────────
 
   function getClient(): MatrixClient | null {
     return _client;
@@ -195,6 +315,7 @@ export function createClientManager() {
   return {
     login,
     loginWithToken,
+    initAndStart,
     restore,
     logout,
     getClient,

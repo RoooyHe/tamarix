@@ -20,18 +20,10 @@
   import { ArrowLeft, Save, Archive, Plus, Trash2, RefreshCw } from "@lucide/svelte";
   import { t } from "$lib/i18n";
   import type { TaskTemplate, CustomFieldType, CustomFieldDefinition, TaskStatus, Priority, TaskType, GitProvider } from "$lib/matrix/types";
-  import {
-    createTaskTemplate,
-    getTaskTemplates,
-    deleteTaskTemplate,
-    setCustomFieldDefinition,
-    getCustomFieldDefinitions,
-    deleteCustomFieldDefinition,
-    setApprovalConfig,
-    getApprovalConfig,
-    setGitConfig,
-    getGitConfig
-  } from "$lib/matrix/state-events";
+  import { createTaskTemplate, getTaskTemplates, deleteTaskTemplate } from "$lib/matrix/templates";
+  import { setCustomFieldDefinition, getCustomFieldDefinitions, deleteCustomFieldDefinition } from "$lib/matrix/custom-fields";
+  import { setApprovalConfig, getApprovalConfig } from "$lib/matrix/approvals";
+  import { setGitConfig, getGitConfig } from "$lib/matrix/git-config";
   import { generateWebhookSecret } from "$lib/utils/crypto";
 
   let auth = getAuthContext();

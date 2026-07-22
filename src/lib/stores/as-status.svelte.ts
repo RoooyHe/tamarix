@@ -118,14 +118,6 @@ function createAsStatusState() {
 
 export type AsStatusStore = ReturnType<typeof createAsStatusState>;
 
-const AS_STATUS_CONTEXT_KEY = "tamarix:as_status";
-
-export function setAsStatusContext() {
-  const status = createAsStatusState();
-  return status;
-}
-
-// Singleton for non-context usage
 let _instance: AsStatusStore | null = null;
 
 export function getAsStatusStore(): AsStatusStore {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { MatrixClient } from "matrix-js-sdk";
   import type { WorklogEntry } from "$lib/matrix/types";
-  import { getWorklogsContext } from "$lib/stores/worklogs.svelte";
+  import { addWorklog, removeWorklog, getWorklogs } from "$lib/matrix/worklog-service";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Textarea } from "$lib/components/ui/textarea";
@@ -21,7 +21,50 @@
 
   let { client, roomId, estimateHours }: Props = $props();
 
-  let worklogs = getWorklogsContext();
+  let worklogs = $state<WorklogEntry[]>([]);
+  let error = $state<string | null>(null);
+
+  let totalHours = $derived(worklogs.reduce((sum, w) => sum + w.hours, 0));
+
+  function getEstimateVsActual(estimate: number | undefined) {
+    const estimated = estimate ?? 0;
+    const actual = totalHours;
+    return { estimated, actual, diff: estimated - actual };
+  }
+
+  function loadWorklogs() {
+    error = null;
+    try {
+      const room = client.getRoom(roomId);
+      if (!room) {
+        worklogs = [];
+        return;
+      }
+      worklogs = getWorklogs(room);
+    } catch (e) {
+      error = e instanceof Error ? e.message : t("error.load_tasks");
+    }
+  }
+
+  async function addWorklogEntry(entry: WorklogEntry) {
+    error = null;
+    try {
+      await addWorklog(client, roomId, entry);
+      loadWorklogs();
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to add worklog";
+    }
+  }
+
+  async function removeWorklogEntry(stateKey: string) {
+    error = null;
+    try {
+      await removeWorklog(client, roomId, stateKey);
+      loadWorklogs();
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to remove worklog";
+    }
+  }
 
   let newHours = $state("");
   let newNote = $state("");
@@ -47,24 +90,24 @@
       loggedAt: Date.now()
     };
 
-    await worklogs.addWorklogEntry(client, roomId, entry);
+    await addWorklogEntry(entry);
     newHours = "";
     newNote = "";
   }
 
   async function handleDeleteWorklog(entry: WorklogEntry) {
     const stateKey = `${entry.userId}_${entry.loggedAt}`;
-    await worklogs.removeWorklogEntry(client, roomId, stateKey);
+    await removeWorklogEntry(stateKey);
   }
 
   // Load worklogs when mounted
   $effect(() => {
     if (client && roomId) {
-      worklogs.loadWorklogs(client, roomId);
+      loadWorklogs();
     }
   });
 
-  let estimateVsActual = $derived(worklogs.getEstimateVsActual(estimateHours));
+  let estimateVsActual = $derived(getEstimateVsActual(estimateHours));
   let progressPercent = $derived(
     estimateVsActual.estimated > 0
       ? Math.min(100, Math.round((estimateVsActual.actual / estimateVsActual.estimated) * 100))
@@ -122,7 +165,7 @@
   <Separator />
 
   <!-- Worklog list -->
-  {#if worklogs.worklogs.length === 0}
+  {#if worklogs.length === 0}
     <div class="text-sm text-muted-foreground text-center py-4">
       {t("worklog.no_worklogs")}
     </div>
@@ -130,9 +173,9 @@
     <div class="space-y-2">
       <div class="flex items-center justify-between text-sm text-muted-foreground">
         <span>{t("worklog.title")}</span>
-        <span>{t("worklog.total")}: {worklogs.totalHours}h</span>
+        <span>{t("worklog.total")}: {totalHours}h</span>
       </div>
-      {#each worklogs.worklogs as entry (entry.userId + entry.loggedAt)}
+      {#each worklogs as entry (entry.userId + entry.loggedAt)}
         <div class="flex items-start gap-3 rounded-lg border border-border p-3">
           <Avatar class="h-6 w-6 mt-0.5">
             <AvatarFallback class="text-xs">
@@ -165,9 +208,9 @@
     </div>
   {/if}
 
-  {#if worklogs.error}
+  {#if error}
     <div class="text-sm text-destructive text-center py-2">
-      {worklogs.error}
+      {error}
     </div>
   {/if}
 </div>

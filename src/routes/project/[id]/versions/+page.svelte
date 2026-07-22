@@ -2,8 +2,8 @@
   import { page } from "$app/stores";
   import { getAuthContext } from "$lib/stores/auth.svelte";
   import { getProjectsContext } from "$lib/stores/projects.svelte";
-  import { getVersionsContext } from "$lib/stores/versions.svelte";
   import { getTasksContext } from "$lib/stores/tasks.svelte";
+  import { getVersions, setVersion } from "$lib/matrix/project-versions";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Badge } from "$lib/components/ui/badge";
@@ -21,8 +21,48 @@
 
   let auth = getAuthContext();
   let projects = getProjectsContext();
-  let versions = getVersionsContext();
   let tasks = getTasksContext();
+
+  let versions = $state<VersionInfo[]>([]);
+  let isLoading = $state(false);
+  let error = $state<string | null>(null);
+
+  function fetchVersions() {
+    if (!auth.client || !projectId) return;
+    isLoading = true;
+    error = null;
+    try {
+      const room = auth.client.getRoom(projectId);
+      versions = room ? getVersions(room) : [];
+    } catch (e) {
+      error = e instanceof Error ? e.message : t("error.load_projects");
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  async function createVersion(version: VersionInfo) {
+    if (!auth.client) return;
+    error = null;
+    try {
+      const versionKey = version.name.replace(/\s+/g, "_").toLowerCase();
+      await setVersion(auth.client, projectId, versionKey, version);
+      fetchVersions();
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to create version";
+    }
+  }
+
+  async function updateVersion(versionKey: string, version: VersionInfo) {
+    if (!auth.client) return;
+    error = null;
+    try {
+      await setVersion(auth.client, projectId, versionKey, version);
+      fetchVersions();
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to update version";
+    }
+  }
 
   let projectId = $derived(decodeURIComponent($page.params.id ?? ""));
   let project = $derived(projects.getProjectById(projectId));
@@ -56,7 +96,7 @@
   // Compute version progress
   let versionProgress = $derived.by(() => {
     const result = new Map<string, { total: number; done: number }>();
-    for (const version of versions.versions) {
+    for (const version of versions) {
       const key = version.name.replace(/\s+/g, "_").toLowerCase();
       const versionTasks = tasks.tasks.filter(task => {
         const room = auth.client?.getRoom(task.roomId);
@@ -74,7 +114,7 @@
   // Load data
   $effect(() => {
     if (auth.client && projectId) {
-      versions.fetchVersions(auth.client, projectId);
+      fetchVersions();
       tasks.fetchTasksFromRooms(auth.client, projectId);
     }
   });
@@ -82,7 +122,7 @@
   async function handleCreateVersion() {
     if (!auth.client || !newName.trim()) return;
     const key = newName.trim().replace(/\s+/g, "_").toLowerCase();
-    await versions.createVersion(auth.client, projectId, {
+    await createVersion({
       name: newName.trim(),
       description: newDescription.trim() || undefined,
       releaseDate: newReleaseDate || undefined,
@@ -98,7 +138,7 @@
   async function handleStatusChange(version: VersionInfo, newStatus: VersionInfo["status"]) {
     if (!auth.client) return;
     const key = version.name.replace(/\s+/g, "_").toLowerCase();
-    await versions.updateVersion(auth.client, projectId, key, {
+    await updateVersion(key, {
       ...version,
       status: newStatus
     });
@@ -135,14 +175,14 @@
   </div>
 
   <!-- Version List -->
-  {#if versions.versions.length === 0}
+  {#if versions.length === 0}
     <div class="text-center py-12 text-muted-foreground">
       <FileText class="h-8 w-8 mx-auto mb-2 opacity-50" />
       <p>{t("version.no_versions")}</p>
     </div>
   {:else}
     <div class="space-y-4">
-      {#each versions.versions as version (version.name)}
+      {#each versions as version (version.name)}
         {@const key = version.name.replace(/\s+/g, "_").toLowerCase()}
         {@const progress = versionProgress.get(key)}
         <div class="rounded-lg border border-border bg-card p-5 space-y-3">

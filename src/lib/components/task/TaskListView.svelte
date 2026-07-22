@@ -17,7 +17,7 @@
     DropdownMenuItem,
     DropdownMenuTrigger,
   } from "$lib/components/ui/dropdown-menu";
-  import { getCustomFieldDefinitions, getCustomFieldValues } from "$lib/matrix/state-events";
+  import { getCustomFieldDefinitions, getCustomFieldValues } from "$lib/matrix/custom-fields";
   import type { MatrixClient } from "matrix-js-sdk";
   import type { SortKey } from "$lib/hooks/useTaskFilters.svelte";
 
