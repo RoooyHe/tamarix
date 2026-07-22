@@ -1,6 +1,7 @@
 import type { Task, TaskStatus, Priority, TaskType } from "./types";
 import { getCustomFieldValues } from "./custom-fields";
 import type { MatrixClient } from "matrix-js-sdk";
+import { asFetch } from "./as-client";
 
 /**
  * Parse a search query string into structured filters and keywords.
@@ -84,18 +85,7 @@ export async function searchViaAS(
     if (filters?.assignee) params.set("assignee", filters.assignee);
     if (filters?.limit) params.set("limit", String(filters.limit));
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-
-    const response = await fetch(`${asUrl}/api/search?${params.toString()}`, {
-      signal: controller.signal
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) return null;
-
-    return await response.json();
+    return await asFetch(asUrl, `/api/search?${params.toString()}`);
   } catch {
     return null;
   }

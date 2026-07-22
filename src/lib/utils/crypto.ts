@@ -3,15 +3,20 @@
  */
 
 /**
- * Generate a random webhook secret (32 bytes hex string).
+ * Generate a random hex string of the given byte length.
  * Uses Web Crypto API for secure random values.
  */
-export function generateWebhookSecret(): string {
-  const bytes = new Uint8Array(32);
+export function generateRandomHex(length: number): string {
+  const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
+  return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Generate a random webhook secret (32 bytes hex string).
+ */
+export function generateWebhookSecret(): string {
+  return generateRandomHex(32);
 }
 
 /**

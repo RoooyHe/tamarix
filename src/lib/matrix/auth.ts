@@ -11,6 +11,7 @@ import {
 import { persistCredentials } from "./client-manager";
 import { getMatrixErrorData } from "./errors";
 import { parseUiaSession, type UiaSession } from "./uia";
+import { generateRandomHex } from "$lib/utils/crypto";
 
 const SSO_STATE_KEY = "tamarix.sso_state";
 
@@ -134,9 +135,7 @@ async function handleRegistrationResponse(
 }
 
 function randomId(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  return generateRandomHex(16);
 }
 
 export function createSsoLoginState(

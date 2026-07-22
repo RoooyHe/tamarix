@@ -2,6 +2,10 @@
 
 ## Matrix State Layer
 
+- **event-types** — custom Matrix event type constants (`TAMARIX_EVENT_TYPES`). No dependencies. Lives in `src/lib/matrix/event-types.ts`.
+- **task-types** — all domain interfaces and type aliases (Task, Project, WorklogEntry, etc.) plus ordering constants. No dependencies. Lives in `src/lib/matrix/task-types.ts`.
+- **labels** — i18n-coupled label helpers (`getStatusLabel`, `getPriorityLabel`, `getTypeLabel`). Depends on `$lib/i18n` and `task-types`. Lives in `src/lib/matrix/labels.ts`.
+- **types** — barrel re-export of `event-types`, `task-types`, and `labels`. Backward-compatible. Lives in `src/lib/matrix/types.ts`.
 - **state-primitives** — low-level Matrix state CRUD seam (`getStateEvent`, `sendStateEvent`). All domain modules depend on this. Lives in `src/lib/matrix/state-primitives.ts`.
 - **templates** — task template CRUD (create, get, delete). Templates define default fields for new tasks. Lives in `src/lib/matrix/templates.ts`.
 - **custom-fields** — custom field definition and value CRUD. Project-level definitions, task-level values. Lives in `src/lib/matrix/custom-fields.ts`.
@@ -40,6 +44,10 @@
 ### Collapsed stores (consumers use local state + repository directly)
 - ~~versions store~~ — was pure delegation to `getVersions`/`setVersion`. Consumers now manage local `$state` and call repository functions.
 - ~~worklogs store~~ — was pure delegation to `getWorklogs`/`addWorklog`/`removeWorklog`. Inlined into `WorklogPanel.svelte`.
+
+## AS Communication Layer
+
+- **as-client** — shared HTTP client for Application Service API calls. Handles URL normalization, timeout, and error normalization. Single seam for all AS HTTP communication. Lives in `src/lib/matrix/as-client.ts`.
 
 ## Credential Lifecycle
 

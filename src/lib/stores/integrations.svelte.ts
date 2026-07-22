@@ -4,6 +4,7 @@ import {
   type IntegrationConnection,
   type IntegrationProvider
 } from "$lib/integrations/types";
+import { asFetch } from "$lib/matrix/as-client";
 
 const INTEGRATIONS_CONTEXT_KEY = "tamarix:integrations";
 
@@ -27,11 +28,7 @@ function createIntegrationsStore() {
     isLoading = true;
     error = null;
     try {
-      const response = await fetch(`${asUrl.replace(/\/+$/, "")}/api/integrations`);
-      if (!response.ok) {
-        throw new Error(`AS returned ${response.status}`);
-      }
-      const data = await response.json() as { connections?: IntegrationConnection[] };
+      const data = await asFetch<{ connections?: IntegrationConnection[] }>(asUrl, "/api/integrations");
       connections = data.connections ?? [];
     } catch (e) {
       connections = [];
@@ -49,18 +46,15 @@ function createIntegrationsStore() {
 
     error = null;
     try {
-      const response = await fetch(
-        `${asUrl.replace(/\/+$/, "")}/api/integrations/${provider}/oauth/start`,
+      const data = await asFetch<OAuthStartResponse>(
+        asUrl,
+        `/api/integrations/${provider}/oauth/start`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ redirect_to: redirectTo ?? window.location.href })
         }
       );
-      const data = await response.json() as OAuthStartResponse;
-      if (!response.ok) {
-        throw new Error(data.error ?? `AS returned ${response.status}`);
-      }
       return data.authorization_url ?? data.url ?? null;
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to start OAuth";

@@ -25,12 +25,6 @@ const TASK_SIGNATURE_EVENT_TYPES = [
   TAMARIX_EVENT_TYPES.SORT_ORDER
 ] as const;
 
-function getParentProjectId(room: Room): string | undefined {
-  const parentEvents = room.currentState.getStateEvents(EventType.SpaceParent);
-  const canonical = parentEvents.find(event => event.getContent()?.canonical === true);
-  return canonical?.getStateKey() ?? parentEvents[0]?.getStateKey() ?? undefined;
-}
-
 function roomMatchesProject(room: Room, projectRoomId: string): boolean {
   return room.currentState
     .getStateEvents(EventType.SpaceParent)

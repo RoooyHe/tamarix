@@ -1,5 +1,6 @@
 import type { MatrixClient } from "matrix-js-sdk";
 import type { IThreepid } from "matrix-js-sdk/lib/@types/threepids";
+import { generateRandomHex } from "$lib/utils/crypto";
 
 export interface ThreePidBindSession {
   medium: "email" | "msisdn";
@@ -9,9 +10,7 @@ export interface ThreePidBindSession {
 }
 
 export function generateClientSecret(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  return generateRandomHex(16);
 }
 
 export async function getThreePids(client: MatrixClient): Promise<IThreepid[]> {

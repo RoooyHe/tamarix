@@ -73,6 +73,7 @@ function createCommentsState() {
         .map(parseMessageEvent);
     } catch (e) {
       error = e instanceof Error ? e.message : t("error.load_comments");
+    } finally {
       isLoading = false;
     }
   }

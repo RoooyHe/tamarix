@@ -8,6 +8,7 @@ import { TAMARIX_EVENT_TYPES } from "./types";
 import { isTaskRoom, isRoomEncrypted, getParentSpaceId, getRoomCreatedAt } from "./room-utils";
 import { generateNextTicketId } from "./ticket-id";
 import { getStateEvent, sendStateEvent } from "./state-primitives";
+import { getWorklogs } from "./worklog-service";
 
 // ─── Task<->Matrix mapping ──────────────────────────────────────
 
@@ -27,19 +28,7 @@ function roomToTask(room: Room): Task {
   const descriptionEvent = getStateEvent<{ body: string; formatted_body: string; format: string }>(
     room, TAMARIX_EVENT_TYPES.DESCRIPTION
   );
-  const worklogEvents = room.currentState.getStateEvents(TAMARIX_EVENT_TYPES.WORKLOG as any);
-  const worklogs: WorklogEntry[] = worklogEvents
-    .map(e => {
-      const content = e.getContent();
-      return {
-        userId: content.user_id ?? e.getStateKey() ?? "",
-        hours: content.hours ?? 0,
-        note: content.note ?? "",
-        loggedAt: content.logged_at ?? 0
-      } as WorklogEntry;
-    })
-    .filter(e => e.hours > 0)
-    .sort((a, b) => b.loggedAt - a.loggedAt);
+  const worklogs = getWorklogs(room);
 
   const versionEvent = getStateEvent<{ version: string }>(room, TAMARIX_EVENT_TYPES.TASK_VERSION);
   const watcherEvents = room.currentState.getStateEvents(TAMARIX_EVENT_TYPES.WATCHER as any);
@@ -115,17 +104,59 @@ export function getTaskByTicketId(ticketId: string, tasks: Task[]): Task | undef
 }
 
 /**
+ * Convert a partial Task patch into Matrix state event writes.
+ * Single source of truth for field-to-event mapping.
+ */
+function patchToWrites(client: MatrixClient, roomId: string, patch: Partial<Task>): Promise<void>[] {
+  const writes: Promise<void>[] = [];
+
+  if ("status" in patch && patch.status !== undefined) {
+    writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TASK_STATUS, { status: patch.status }));
+  }
+  if ("priority" in patch && patch.priority !== undefined) {
+    writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.PRIORITY, { level: patch.priority }));
+  }
+  if ("type" in patch && patch.type !== undefined) {
+    writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TASK_TYPE, { type: patch.type }));
+  }
+  if ("dueDate" in patch && patch.dueDate !== undefined) {
+    writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.DUE_DATE, { date: patch.dueDate }));
+  }
+  if ("tags" in patch && patch.tags !== undefined) {
+    writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TAGS, { tags: patch.tags }));
+  }
+  if ("assignee" in patch) {
+    if (patch.assignee) {
+      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.ASSIGNEE, { user_id: patch.assignee }));
+    } else {
+      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.ASSIGNEE, {}));
+    }
+  }
+  if ("sortOrder" in patch && patch.sortOrder !== undefined) {
+    writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.SORT_ORDER, { order: patch.sortOrder }));
+  }
+  if ("archived" in patch && patch.archived !== undefined) {
+    const userId = client.getUserId() ?? "";
+    writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TASK_ARCHIVED, {
+      archived: patch.archived,
+      archived_by: userId,
+      archived_at: new Date().toISOString()
+    }));
+  }
+  if ("description" in patch || "formattedDescription" in patch) {
+    writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.DESCRIPTION, {
+      body: patch.description ?? "",
+      formatted_body: patch.formattedDescription ?? "",
+      format: "org.matrix.custom.html"
+    }));
+  }
+
+  return writes;
+}
+
+/**
  * Apply a partial patch to a task room.
- * - Saves the previous state for rollback
- * - Optimistically updates the caller-provided cache via `applyPatch`
- * - Writes each changed field to Matrix as the appropriate state event
- * - On failure, restores the previous state via `applyPatch`
- *
- * @param client - Matrix client
- * @param roomId - Task room ID
- * @param patch - Partial Task fields to apply
- * @param applyPatch - Callback to apply or revert the patch in the caller's cache
- * @returns true if the write succeeded, false on failure
+ * Optimistically updates via `applyPatch`, writes to Matrix, reverts on failure.
  */
 export async function patchTask(
   client: MatrixClient,
@@ -133,57 +164,11 @@ export async function patchTask(
   patch: Partial<Task>,
   applyPatch: (patch: Partial<Task> | null) => void
 ): Promise<boolean> {
-  // Apply the optimistic update
   applyPatch(patch);
-
   try {
-    const writes: Promise<void>[] = [];
-
-    if ("status" in patch && patch.status !== undefined) {
-      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TASK_STATUS, { status: patch.status }));
-    }
-    if ("priority" in patch && patch.priority !== undefined) {
-      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.PRIORITY, { level: patch.priority }));
-    }
-    if ("type" in patch && patch.type !== undefined) {
-      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TASK_TYPE, { type: patch.type }));
-    }
-    if ("dueDate" in patch && patch.dueDate !== undefined) {
-      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.DUE_DATE, { date: patch.dueDate }));
-    }
-    if ("tags" in patch && patch.tags !== undefined) {
-      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TAGS, { tags: patch.tags }));
-    }
-    if ("assignee" in patch) {
-      if (patch.assignee) {
-        writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.ASSIGNEE, { user_id: patch.assignee }));
-      } else {
-        writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.ASSIGNEE, {}));
-      }
-    }
-    if ("sortOrder" in patch && patch.sortOrder !== undefined) {
-      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.SORT_ORDER, { order: patch.sortOrder }));
-    }
-    if ("archived" in patch && patch.archived !== undefined) {
-      const userId = client.getUserId() ?? "";
-      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TASK_ARCHIVED, {
-        archived: patch.archived,
-        archived_by: userId,
-        archived_at: new Date().toISOString()
-      }));
-    }
-    if ("description" in patch || "formattedDescription" in patch) {
-      writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.DESCRIPTION, {
-        body: patch.description ?? "",
-        formatted_body: patch.formattedDescription ?? "",
-        format: "org.matrix.custom.html"
-      }));
-    }
-
-    await Promise.all(writes);
+    await Promise.all(patchToWrites(client, roomId, patch));
     return true;
   } catch {
-    // Revert the optimistic update
     applyPatch(null);
     return false;
   }
@@ -191,36 +176,18 @@ export async function patchTask(
 
 /**
  * Apply a batch of patches across multiple task rooms.
- * All patches are applied optimistically first; if any write fails,
- * all patches are reverted.
+ * Optimistically updates via `applyPatches`, writes to Matrix, reverts all on failure.
  */
 export async function bulkPatch(
   client: MatrixClient,
   patches: Map<string, Partial<Task>>,
   applyPatches: (patches: Map<string, Partial<Task> | null> | null) => void
 ): Promise<boolean> {
-  // Apply all optimistic updates
   applyPatches(patches);
-
   try {
     const writes: Promise<void>[] = [];
     for (const [roomId, patch] of patches) {
-      if ("status" in patch && patch.status !== undefined) {
-        writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TASK_STATUS, { status: patch.status }));
-      }
-      if ("priority" in patch && patch.priority !== undefined) {
-        writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.PRIORITY, { level: patch.priority }));
-      }
-      if ("archived" in patch && patch.archived !== undefined) {
-        writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TASK_ARCHIVED, {
-          archived: patch.archived,
-          archived_by: client.getUserId() ?? "",
-          archived_at: new Date().toISOString()
-        }));
-      }
-      if ("tags" in patch && patch.tags !== undefined) {
-        writes.push(sendStateEvent(client, roomId, TAMARIX_EVENT_TYPES.TAGS, { tags: patch.tags }));
-      }
+      writes.push(...patchToWrites(client, roomId, patch));
     }
     await Promise.all(writes);
     return true;

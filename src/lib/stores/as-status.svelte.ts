@@ -7,6 +7,7 @@
  */
 
 import { onMount } from "svelte";
+import { asFetch } from "$lib/matrix/as-client";
 
 const AS_STATUS_KEY = "tamarix:as_status";
 
@@ -38,21 +39,8 @@ function createAsStatusState() {
 
     checking = true;
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(`${asUrl}/api/health`, {
-        signal: controller.signal
-      });
-
-      clearTimeout(timeout);
-
-      if (response.ok) {
-        const data = await response.json();
-        asAvailable = data.status === "ok" || data.status === "degraded";
-      } else {
-        asAvailable = false;
-      }
+      const data = await asFetch<{ status: string }>(asUrl, "/api/health");
+      asAvailable = data.status === "ok" || data.status === "degraded";
     } catch {
       asAvailable = false;
     } finally {
@@ -83,12 +71,9 @@ function createAsStatusState() {
     if (cached) return cached;
 
     try {
-      const response = await fetch(`${asUrl}/api/rooms/${encodeURIComponent(roomId)}/e2ee-status`);
-      if (response.ok) {
-        const data = await response.json();
-        e2eeStatusCache.set(roomId, data);
-        return data;
-      }
+      const data = await asFetch<{ encrypted: boolean; degraded_features: Array<{ id: string; description: string }> }>(asUrl, `/api/rooms/${encodeURIComponent(roomId)}/e2ee-status`);
+      e2eeStatusCache.set(roomId, data);
+      return data;
     } catch {
       // AS unavailable
     }
