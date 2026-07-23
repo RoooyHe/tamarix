@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { Task, TaskStatus } from "$lib/matrix/types";
-  import { getStatusLabel, TASK_STATUS_ORDER } from "$lib/matrix/types";
+  import type { Task, TaskStatus } from "$lib/matrix/task-types";
+  import { TASK_STATUS_ORDER } from "$lib/matrix/task-types";
+  import { getStatusLabel } from "$lib/matrix/labels";
   import { t } from "$lib/i18n";
   import KanbanCard from "./KanbanCard.svelte";
   import { getDragData, hasDragData } from "$lib/utils/drag";

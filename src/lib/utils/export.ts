@@ -1,4 +1,4 @@
-import type { Task } from "$lib/matrix/types";
+import type { Task } from "$lib/matrix/task-types";
 import type {
   BurndownDataPoint,
   StatusDistributionItem,

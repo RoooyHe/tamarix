@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { MatrixClient } from "matrix-js-sdk";
-  import type { WorklogEntry } from "$lib/matrix/types";
+  import type { WorklogEntry } from "$lib/matrix/task-types";
   import { addWorklog, removeWorklog, getWorklogs } from "$lib/matrix/worklog-service";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";

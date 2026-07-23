@@ -8,7 +8,7 @@
   import TaskCreateDialog from "$lib/components/task/TaskCreateDialog.svelte";
   import KanbanBoard from "$lib/components/board/KanbanBoard.svelte";
   import { Skeleton } from "$lib/components/ui/skeleton";
-  import type { TaskStatus, Priority, TaskType } from "$lib/matrix/types";
+  import type { TaskStatus, Priority, TaskType } from "$lib/matrix/task-types";
   import { t } from "$lib/i18n";
   import ImportDialog from "$lib/components/task/ImportDialog.svelte";
   import BulkActionBar from "$lib/components/task/BulkActionBar.svelte";

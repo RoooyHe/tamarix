@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Input } from "$lib/components/ui/input";
   import { t } from "$lib/i18n";
-  import type { CustomFieldDefinition, CustomFieldValue, CustomFieldType } from "$lib/matrix/types";
+  import type { CustomFieldDefinition, CustomFieldValue, CustomFieldType } from "$lib/matrix/task-types";
 
   interface Props {
     definition: CustomFieldDefinition;

@@ -3,7 +3,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Eye, EyeOff } from "@lucide/svelte";
   import { t } from "$lib/i18n";
-  import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
+  import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/task-types";
   import type { MatrixClient } from "matrix-js-sdk";
   import TaskStatusSelect from "$lib/components/task/TaskStatusSelect.svelte";
   import PrioritySelect from "$lib/components/task/PrioritySelect.svelte";

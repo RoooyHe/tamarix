@@ -1,4 +1,4 @@
-import type { TaskStatus } from "$lib/matrix/types";
+import type { TaskStatus } from "$lib/matrix/task-types";
 
 /**
  * Sort order utility functions for manual column sorting.

@@ -20,7 +20,7 @@
   import AssigneeSelect from "./AssigneeSelect.svelte";
   import CustomFieldRenderer from "./CustomFieldRenderer.svelte";
   import type { MatrixClient } from "matrix-js-sdk";
-  import type { TaskStatus, Priority, TaskType, TaskTemplate, CustomFieldDefinition, CustomFieldValue } from "$lib/matrix/types";
+  import type { TaskStatus, Priority, TaskType, TaskTemplate, CustomFieldDefinition, CustomFieldValue } from "$lib/matrix/task-types";
   import { getTaskTemplates } from "$lib/matrix/templates";
   import { getCustomFieldDefinitions, setCustomFieldValue } from "$lib/matrix/custom-fields";
   import { Plus, Lock } from "@lucide/svelte";

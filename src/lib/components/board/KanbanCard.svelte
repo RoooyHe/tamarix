@@ -3,8 +3,8 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Avatar, AvatarFallback } from "$lib/components/ui/avatar";
   import { Checkbox } from "$lib/components/ui/checkbox";
-  import type { Task } from "$lib/matrix/types";
-  import { getPriorityLabel } from "$lib/matrix/types";
+  import type { Task } from "$lib/matrix/task-types";
+  import { getPriorityLabel } from "$lib/matrix/labels";
   import { Bug, Sparkles, ListTodo, Wrench, Target, Calendar, Zap, Lock } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";

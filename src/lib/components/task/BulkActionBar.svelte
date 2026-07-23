@@ -9,8 +9,9 @@
   } from "$lib/components/ui/dropdown-menu";
   import { X, Archive, Tag } from "@lucide/svelte";
   import { t } from "$lib/i18n";
-  import type { TaskStatus, Priority } from "$lib/matrix/types";
-  import { TASK_STATUS_ORDER, PRIORITY_ORDER, getStatusLabel, getPriorityLabel } from "$lib/matrix/types";
+  import type { TaskStatus, Priority } from "$lib/matrix/task-types";
+import { getStatusLabel, getPriorityLabel, getTypeLabel } from "$lib/matrix/labels";
+  import { TASK_STATUS_ORDER, PRIORITY_ORDER,  } from "$lib/matrix/task-types";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
 
   interface Props {

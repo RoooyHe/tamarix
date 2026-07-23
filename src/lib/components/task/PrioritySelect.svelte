@@ -5,8 +5,9 @@
     SelectItem,
     SelectTrigger
   } from "$lib/components/ui/select";
-  import type { Priority } from "$lib/matrix/types";
-import { getPriorityLabel, PRIORITY_ORDER } from "$lib/matrix/types";
+  import type { Priority } from "$lib/matrix/task-types";
+  import { PRIORITY_ORDER } from "$lib/matrix/task-types";
+  import { getPriorityLabel } from "$lib/matrix/labels";
   import { AlertTriangle, ArrowUp, Minus, ArrowDown } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";

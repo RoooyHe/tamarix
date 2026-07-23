@@ -10,7 +10,7 @@
   } from "$lib/components/ui/dropdown-menu";
   import { Download, Upload, Settings, Milestone, BarChart3 } from "@lucide/svelte";
   import { t } from "$lib/i18n";
-  import type { Project } from "$lib/matrix/types";
+  import type { Project } from "$lib/matrix/task-types";
 
   interface Props {
     project: Project | undefined;

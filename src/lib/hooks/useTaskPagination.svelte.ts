@@ -1,4 +1,4 @@
-import type { Task } from "$lib/matrix/types";
+import type { Task } from "$lib/matrix/task-types";
 
 /**
  * Composable hook for task list pagination state.

@@ -17,7 +17,7 @@
   } from "$lib/components/ui/dialog";
   import { ArrowLeft, Plus, FileText, Copy } from "@lucide/svelte";
   import { t } from "$lib/i18n";
-  import type { VersionInfo } from "$lib/matrix/types";
+  import type { VersionInfo } from "$lib/matrix/task-types";
 
   let auth = getAuthContext();
   let projects = getProjectsContext();

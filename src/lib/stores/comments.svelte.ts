@@ -2,7 +2,7 @@ import { getContext, setContext } from "svelte";
 import type { MatrixClient, Room, MatrixEvent, IRoomTimelineData } from "matrix-js-sdk";
 import { EventType } from "matrix-js-sdk";
 import type { RoomMessageEventContent } from "matrix-js-sdk/lib/@types/events";
-import type { Comment, Attachment } from "$lib/matrix/types";
+import type { Comment, Attachment } from "$lib/matrix/task-types";
 import { getMsgType } from "$lib/file-service";
 import { onTimelineEvent } from "$lib/matrix/timeline-bus";
 import { t } from "$lib/i18n";

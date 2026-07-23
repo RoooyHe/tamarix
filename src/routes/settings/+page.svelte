@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { getAuthContext } from "$lib/stores/auth.svelte";
   import { getAccountContext } from "$lib/stores/account.svelte";
-  import { getAsStatusStore } from "$lib/stores/as-status.svelte";
+  import { getAsStatusContext } from "$lib/stores/as-status.svelte";
   import { getIntegrationsContext } from "$lib/stores/integrations.svelte";
   import { getUiContext } from "$lib/stores/ui.svelte";
   import { Alert, AlertDescription } from "$lib/components/ui/alert";
@@ -17,7 +17,7 @@
   let auth = getAuthContext();
   let account = getAccountContext();
   let ui = getUiContext();
-  let asStatus = getAsStatusStore();
+  let asStatus = getAsStatusContext();
   let integrations = getIntegrationsContext();
 
   let asUrlInput = $state(asStatus.asUrl);

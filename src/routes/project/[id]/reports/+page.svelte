@@ -10,7 +10,7 @@
   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "$lib/components/ui/dropdown-menu";
   import { ArrowLeft, BarChart3, TrendingUp, Users, GitBranch, Download, Image, FileText } from "@lucide/svelte";
   import { t } from "$lib/i18n";
-  import type { VersionInfo } from "$lib/matrix/types";
+  import type { VersionInfo } from "$lib/matrix/task-types";
   import {
     getBurndownData,
     getStatusDistribution,

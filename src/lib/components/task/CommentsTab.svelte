@@ -5,7 +5,7 @@
   import { Avatar, AvatarFallback } from "$lib/components/ui/avatar";
   import { Send, Paperclip } from "@lucide/svelte";
   import { t } from "$lib/i18n";
-  import type { Task } from "$lib/matrix/types";
+  import type { Task } from "$lib/matrix/task-types";
   import type { MatrixClient } from "matrix-js-sdk";
   import type { CommentsStore } from "$lib/stores/comments.svelte";
   import FileUploadZone from "$lib/components/task/FileUploadZone.svelte";

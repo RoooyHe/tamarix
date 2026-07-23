@@ -11,12 +11,13 @@
   import { Alert, AlertDescription, AlertTitle } from "$lib/components/ui/alert";
   import { Archive, ArchiveRestore, MoreVertical, MessageSquare, Clock, History, GitBranch, Lock, ShieldAlert, ChevronLeft, ChevronDown, ChevronRight, Paperclip, Upload } from "@lucide/svelte";
   import { t } from "$lib/i18n";
-  import type { TaskStatus, Priority, TaskType, VersionInfo } from "$lib/matrix/types";
+  import type { TaskStatus, Priority, TaskType, VersionInfo } from "$lib/matrix/task-types";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
   import { goto } from "$app/navigation";
-  import { getAsStatusStore } from "$lib/stores/as-status.svelte";
+  import { getAsStatusContext } from "$lib/stores/as-status.svelte";
   import { getRecentTasksContext } from "$lib/stores/recent-tasks.svelte";
   import { getVersions } from "$lib/matrix/project-versions";
+  import { createTaskDetailsState } from "$lib/stores/task-details";
 
   // Sub-components
   import TaskMetadata from "$lib/components/task/TaskMetadata.svelte";
@@ -41,9 +42,10 @@
   let tasks = getTasksContext();
   let commentsStore = getCommentsContext();
   let recentTasks = getRecentTasksContext();
-  let asStatus = getAsStatusStore();
+  let asStatus = getAsStatusContext();
 
   let versions = $state<VersionInfo[]>([]);
+  let details = $state(createTaskDetailsState());
 
   let projectId = $derived(decodeURIComponent($page.params.id ?? ""));
   let taskId = $derived(decodeURIComponent($page.params.taskId ?? ""));
@@ -86,6 +88,20 @@
       const room = auth.client.getRoom(projectId);
       versions = room ? getVersions(room) : [];
     }
+  });
+
+  // Task details store lifecycle
+  $effect(() => {
+    if (auth.client && task && projectId) {
+      details.load(auth.client, task, projectId);
+      const unsub = details.subscribe(auth.client, task);
+      return unsub;
+    }
+  });
+
+  // Sync comments to details store for commit link derivation
+  $effect(() => {
+    details.setComments(commentsStore.comments);
   });
 
   let activeTab = $state("comments");
@@ -148,8 +164,9 @@
   }
 
   function handleRefreshTasks() {
-    if (auth.client) {
+    if (auth.client && task) {
       tasks.fetchTasksFromRooms(auth.client, projectId);
+      details.refresh(auth.client, task, projectId);
     }
   }
 
@@ -343,12 +360,9 @@
       <TabsContent value="details" class="mt-4">
         {#if auth.client}
           <DetailsTab
-            client={auth.client}
             {task}
-            {projectId}
             {versions}
-            {commentsStore}
-            onRefresh={handleRefreshTasks}
+            {details}
           />
         {/if}
       </TabsContent>

@@ -1,7 +1,7 @@
 <script lang="ts">
+import { TAMARIX_EVENT_TYPES } from "$lib/matrix/event-types";
   import type { MatrixClient } from "matrix-js-sdk";
-  import type { Task, RelationType } from "$lib/matrix/types";
-  import { TAMARIX_EVENT_TYPES } from "$lib/matrix/types";
+  import type { Task, RelationType } from "$lib/matrix/task-types";
   import { getStateEvent, sendStateEvent } from "$lib/matrix/state-primitives";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";

@@ -1,6 +1,6 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
-import type { Notification, NotificationType } from "$lib/matrix/types";
+import type { Notification, NotificationType } from "$lib/matrix/task-types";
 import { startNotificationListener } from "$lib/matrix/notification-timeline";
 import { startDueCheckTimer } from "$lib/matrix/due-checker";
 

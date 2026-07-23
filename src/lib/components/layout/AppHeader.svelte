@@ -25,12 +25,12 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { getUiContext } from "$lib/stores/ui.svelte";
-  import { getAsStatusStore } from "$lib/stores/as-status.svelte";
+  import { getAsStatusContext } from "$lib/stores/as-status.svelte";
   import { t } from "$lib/i18n";
 
   let auth = getAuthContext();
   let ui = getUiContext();
-  let asStatus = getAsStatusStore();
+  let asStatus = getAsStatusContext();
   let projects = getProjectsContext();
   let tasks = getTasksContext();
 

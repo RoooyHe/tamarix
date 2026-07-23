@@ -1,6 +1,6 @@
 ﻿<script lang="ts">
   import type { MatrixClient } from "matrix-js-sdk";
-  import type { Attachment } from "$lib/matrix/types";
+  import type { Attachment } from "$lib/matrix/task-types";
   import { getUrl, formatFileSize } from "$lib/file-service";
   import { Button } from "$lib/components/ui/button";
   import { Download, FileIcon, Image, Film, Music } from "@lucide/svelte";

@@ -6,20 +6,21 @@
   import { getTasksContext } from "$lib/stores/tasks.svelte";
   import { searchTasks, searchViaAS, type AsSearchResult } from "$lib/matrix/search";
   import { getUiContext } from "$lib/stores/ui.svelte";
-  import { getAsStatusStore } from "$lib/stores/as-status.svelte";
+  import { getAsStatusContext } from "$lib/stores/as-status.svelte";
   import TaskCard from "$lib/components/task/TaskCard.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { Input } from "$lib/components/ui/input";
   import { Button } from "$lib/components/ui/button";
-  import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
-  import { getStatusLabel, getPriorityLabel, getTypeLabel, TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/types";
+  import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/task-types";
+  import { TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/task-types";
+  import { getStatusLabel, getPriorityLabel, getTypeLabel } from "$lib/matrix/labels";
   import { t } from "$lib/i18n";
   import { Search, X, Database, Server } from "@lucide/svelte";
 
   let auth = getAuthContext();
   let tasks = getTasksContext();
   let ui = getUiContext();
-  let asStatus = getAsStatusStore();
+  let asStatus = getAsStatusContext();
 
   let searchQuery = $state("");
   let debouncedSearchQuery = $state("");

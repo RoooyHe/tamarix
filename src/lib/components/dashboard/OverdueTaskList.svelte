@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from "$lib/i18n";
-  import type { Task } from "$lib/matrix/types";
-  import { getPriorityLabel } from "$lib/matrix/types";
+  import type { Task } from "$lib/matrix/task-types";
+  import { getPriorityLabel } from "$lib/matrix/labels";
   import TaskCard from "$lib/components/task/TaskCard.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { AlertTriangle } from "@lucide/svelte";

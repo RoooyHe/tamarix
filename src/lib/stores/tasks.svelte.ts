@@ -1,6 +1,6 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
-import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
+import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/task-types";
 import { measureSync } from "$lib/utils/performance";
 import { t } from "$lib/i18n";
 import { createTaskCache } from "./task-cache";

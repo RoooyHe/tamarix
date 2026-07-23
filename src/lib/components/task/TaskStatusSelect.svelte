@@ -5,8 +5,9 @@
     SelectItem,
     SelectTrigger
   } from "$lib/components/ui/select";
-  import type { TaskStatus } from "$lib/matrix/types";
-  import { getStatusLabel, TASK_STATUS_ORDER } from "$lib/matrix/types";
+  import type { TaskStatus } from "$lib/matrix/task-types";
+import { getStatusLabel, getPriorityLabel, getTypeLabel } from "$lib/matrix/labels";
+  import { TASK_STATUS_ORDER } from "$lib/matrix/task-types";
   import { getAllowedNextStatuses } from "$lib/matrix/workflow";
   import { Circle, LoaderCircle, Eye, CircleCheck, CircleOff } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";

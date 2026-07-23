@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Task, TaskStatus } from "$lib/matrix/types";
-  import { TASK_STATUS_ORDER } from "$lib/matrix/types";
+  import type { Task, TaskStatus } from "$lib/matrix/task-types";
+  import { TASK_STATUS_ORDER } from "$lib/matrix/task-types";
   import KanbanColumn from "./KanbanColumn.svelte";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
   import { sortByOrder } from "$lib/utils/sort-order";

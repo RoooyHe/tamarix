@@ -12,7 +12,7 @@
   import { t } from "$lib/i18n";
   import { parseCSVRaw, parseJSONRaw, type NormalizedImportRow } from "$lib/utils/import";
   import type { MatrixClient } from "matrix-js-sdk";
-  import type { TaskStatus, Priority, TaskType } from "$lib/matrix/types";
+  import type { TaskStatus, Priority, TaskType } from "$lib/matrix/task-types";
 
   interface Props {
     open?: boolean;

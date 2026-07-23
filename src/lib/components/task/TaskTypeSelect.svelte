@@ -5,8 +5,8 @@
     SelectItem,
     SelectTrigger
   } from "$lib/components/ui/select";
-  import type { TaskType } from "$lib/matrix/types";
-  import { getTypeLabel } from "$lib/matrix/types";
+  import type { TaskType } from "$lib/matrix/task-types";
+  import { getTypeLabel } from "$lib/matrix/labels";
   import { Bug, Sparkles, ListTodo, Wrench, Target } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";

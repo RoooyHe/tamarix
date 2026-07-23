@@ -1,6 +1,6 @@
 import { getContext, setContext } from "svelte";
 import type { MatrixClient } from "matrix-js-sdk";
-import type { Project } from "$lib/matrix/types";
+import type { Project } from "$lib/matrix/task-types";
 import { roomToProject, isSpaceRoom } from "$lib/matrix/room-utils";
 import { measureSync } from "$lib/utils/performance";
 import { t } from "$lib/i18n";

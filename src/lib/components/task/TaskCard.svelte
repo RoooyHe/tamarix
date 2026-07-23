@@ -1,8 +1,9 @@
 <script lang="ts">
   import { Badge } from "$lib/components/ui/badge";
   import { Avatar, AvatarFallback, AvatarImage } from "$lib/components/ui/avatar";
-  import type { Task } from "$lib/matrix/types";
-  import { getStatusLabel, getPriorityLabel } from "$lib/matrix/types";
+  import type { Task } from "$lib/matrix/task-types";
+import { getStatusLabel, getPriorityLabel, getTypeLabel } from "$lib/matrix/labels";
+  import {  } from "$lib/matrix/task-types";
   import { Bug, Sparkles, ListTodo, Wrench, Target, Calendar, Zap } from "@lucide/svelte";
   import type { LucideProps } from "@lucide/svelte";
   import type { Component } from "svelte";

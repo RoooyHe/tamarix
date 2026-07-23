@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Badge } from "$lib/components/ui/badge";
   import { t } from "$lib/i18n";
-  import type { ApprovalStatus } from "$lib/matrix/types";
+  import type { ApprovalStatus } from "$lib/matrix/task-types";
 
   interface Props {
     status: ApprovalStatus;

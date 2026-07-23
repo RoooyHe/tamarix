@@ -1,8 +1,8 @@
 import type { MatrixClient, Room } from "matrix-js-sdk";
+import { TAMARIX_EVENT_TYPES } from "$lib/matrix/event-types";
 import { EventType } from "matrix-js-sdk";
-import type { Task } from "$lib/matrix/types";
+import type { Task } from "$lib/matrix/task-types";
 import { isTaskRoom } from "$lib/matrix/room-utils";
-import { TAMARIX_EVENT_TYPES } from "$lib/matrix/types";
 import { getTask as repoGetTask } from "$lib/matrix/task-repository";
 import { measureSync } from "$lib/utils/performance";
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from "$lib/i18n";
-  import type { Task, Project } from "$lib/matrix/types";
+  import type { Task, Project } from "$lib/matrix/task-types";
   import { Progress } from "$lib/components/ui/progress";
   import { FolderKanban } from "@lucide/svelte";
 

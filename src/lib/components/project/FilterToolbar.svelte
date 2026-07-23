@@ -7,8 +7,9 @@
   import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover";
   import { Filter, List, LayoutGrid } from "@lucide/svelte";
   import { t } from "$lib/i18n";
-  import type { Priority, TaskType } from "$lib/matrix/types";
-  import { getStatusLabel, getPriorityLabel, getTypeLabel, PRIORITY_ORDER } from "$lib/matrix/types";
+  import type { Priority, TaskType } from "$lib/matrix/task-types";
+  import { PRIORITY_ORDER } from "$lib/matrix/task-types";
+  import { getStatusLabel, getPriorityLabel, getTypeLabel } from "$lib/matrix/labels";
 
   interface Filters {
     searchQuery: string;

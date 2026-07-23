@@ -1,5 +1,5 @@
 import { isInputElement } from "$lib/utils/keyboard";
-import { TASK_STATUS_ORDER } from "$lib/matrix/types";
+import { TASK_STATUS_ORDER } from "$lib/matrix/task-types";
 
 interface WritableState {
   value: boolean;

@@ -25,7 +25,7 @@
   } from "@lucide/svelte";
   import { goto } from "$app/navigation";
   import { IsMobile } from "$lib/hooks/is-mobile.svelte";
-  import type { Task } from "$lib/matrix/types";
+  import type { Task } from "$lib/matrix/task-types";
 
   let auth = getAuthContext();
   let tasks = getTasksContext();

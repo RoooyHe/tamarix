@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { MatrixClient } from "matrix-js-sdk";
-  import type { Attachment } from "$lib/matrix/types";
+  import type { Attachment } from "$lib/matrix/task-types";
   import AttachmentPreview from "./AttachmentPreview.svelte";
   import { Button } from "$lib/components/ui/button";
   import {

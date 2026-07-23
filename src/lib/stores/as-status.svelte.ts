@@ -6,10 +6,11 @@
  * Runs entirely client-side, pinging the AS health endpoint.
  */
 
-import { onMount } from "svelte";
+import { getContext, setContext } from "svelte";
 import { asFetch } from "$lib/matrix/as-client";
 
 const AS_STATUS_KEY = "tamarix:as_status";
+const CTX_KEY = Symbol("as-status");
 
 function createAsStatusState() {
   let asAvailable = $state(false);
@@ -20,16 +21,13 @@ function createAsStatusState() {
   // E2EE status cache per room
   let e2eeStatusCache = $state<Map<string, { encrypted: boolean; degraded_features: Array<{ id: string; description: string }> }>>(new Map());
 
-  // Load saved AS URL
-  onMount(() => {
-    if (typeof localStorage !== "undefined") {
-      const saved = localStorage.getItem(AS_STATUS_KEY);
-      if (saved) {
-        asUrl = saved;
-        checkHealth();
-      }
+  // Load saved AS URL from localStorage
+  if (typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem(AS_STATUS_KEY);
+    if (saved) {
+      asUrl = saved;
     }
-  });
+  }
 
   async function checkHealth(): Promise<boolean> {
     if (!asUrl) {
@@ -103,11 +101,12 @@ function createAsStatusState() {
 
 export type AsStatusStore = ReturnType<typeof createAsStatusState>;
 
-let _instance: AsStatusStore | null = null;
+export function setAsStatusContext(): AsStatusStore {
+  const state = createAsStatusState();
+  setContext(CTX_KEY, state);
+  return state;
+}
 
-export function getAsStatusStore(): AsStatusStore {
-  if (!_instance) {
-    _instance = createAsStatusState();
-  }
-  return _instance;
+export function getAsStatusContext(): AsStatusStore {
+  return getContext(CTX_KEY);
 }

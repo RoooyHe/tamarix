@@ -9,6 +9,7 @@
   import { setIntegrationsContext } from "$lib/stores/integrations.svelte";
   import { setAccountContext } from "$lib/stores/account.svelte";
   import { setUiContext } from "$lib/stores/ui.svelte";
+  import { setAsStatusContext } from "$lib/stores/as-status.svelte";
   import AppShell from "$lib/components/layout/AppShell.svelte";
   import KeyboardShortcuts from "$lib/components/common/KeyboardShortcuts.svelte";
   import CommandPalette from "$lib/components/common/CommandPalette.svelte";
@@ -32,6 +33,12 @@
   let integrations = setIntegrationsContext();
   let account = setAccountContext();
   let ui = setUiContext();
+  let asStatus = setAsStatusContext();
+
+  // Check AS health on startup if URL is saved
+  if (asStatus.asUrl) {
+    void asStatus.checkHealth();
+  }
 
   // Sync manager: stores register refresh callbacks, layout manages lifecycle
   let syncManager = createSyncManager();

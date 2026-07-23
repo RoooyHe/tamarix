@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Select, SelectContent, SelectItem, SelectTrigger } from "$lib/components/ui/select";
   import { t } from "$lib/i18n";
-  import type { VersionInfo } from "$lib/matrix/types";
+  import type { VersionInfo } from "$lib/matrix/task-types";
 
   interface Props {
     versions: VersionInfo[];

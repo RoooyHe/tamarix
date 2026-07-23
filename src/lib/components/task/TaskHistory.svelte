@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { MatrixClient } from "matrix-js-sdk";
-  import { TAMARIX_EVENT_TYPES } from "$lib/matrix/types";
-  import { getStatusLabel, getPriorityLabel, getTypeLabel } from "$lib/matrix/types";
+  import { TAMARIX_EVENT_TYPES } from "$lib/matrix/event-types";
+  import { getStatusLabel, getPriorityLabel, getTypeLabel } from "$lib/matrix/labels";
   import { Avatar, AvatarFallback } from "$lib/components/ui/avatar";
   import { t } from "$lib/i18n";
   import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "$lib/components/ui/collapsible";

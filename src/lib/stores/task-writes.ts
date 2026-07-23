@@ -1,6 +1,6 @@
 import type { MatrixClient } from "matrix-js-sdk";
-import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
-import { getStatusLabel } from "$lib/matrix/types";
+import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/task-types";
+import { getStatusLabel, getPriorityLabel, getTypeLabel } from "$lib/matrix/labels";
 import { canTransition } from "$lib/matrix/workflow";
 import { getApproval, getApprovalConfig } from "$lib/matrix/approvals";
 import { patchTask, bulkPatch, createTask as repoCreateTask } from "$lib/matrix/task-repository";

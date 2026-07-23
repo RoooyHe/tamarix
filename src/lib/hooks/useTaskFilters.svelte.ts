@@ -1,5 +1,5 @@
-import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/types";
-import { TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/types";
+import type { Task, TaskStatus, Priority, TaskType } from "$lib/matrix/task-types";
+import { TASK_STATUS_ORDER, PRIORITY_ORDER } from "$lib/matrix/task-types";
 import { searchTasks } from "$lib/matrix/search";
 import { computeSortAtPosition, SORT_MAX } from "$lib/utils/sort-order";
 import type { MatrixClient } from "matrix-js-sdk";

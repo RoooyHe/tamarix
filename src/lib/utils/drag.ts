@@ -1,4 +1,4 @@
-import type { TaskStatus } from "$lib/matrix/types";
+import type { TaskStatus } from "$lib/matrix/task-types";
 
 const DRAG_MIME_TYPE = "application/x-tamarix-task";
 

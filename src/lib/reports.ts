@@ -1,6 +1,6 @@
-import type { Task, TaskStatus } from "$lib/matrix/types";
-import type { VersionInfo } from "$lib/matrix/types";
-import { TASK_STATUS_ORDER } from "$lib/matrix/types";
+import type { Task, TaskStatus } from "$lib/matrix/task-types";
+import type { VersionInfo } from "$lib/matrix/task-types";
+import { TASK_STATUS_ORDER } from "$lib/matrix/task-types";
 
 // --- Data Types ---
 

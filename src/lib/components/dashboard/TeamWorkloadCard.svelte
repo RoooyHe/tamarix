@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from "$lib/i18n";
-  import type { Task } from "$lib/matrix/types";
+  import type { Task } from "$lib/matrix/task-types";
   import { Badge } from "$lib/components/ui/badge";
   import { Users } from "@lucide/svelte";
 
