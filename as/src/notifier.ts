@@ -11,9 +11,10 @@
  * with the target user, respecting their notification preferences.
  */
 
-import { getBot, sendNotice, ensureJoined, getStateEvent } from "./bot.js";
+import { type MatrixClient, getBot, sendNotice, ensureJoined, getStateEvent } from "./bot.js";
 import { getDb } from "./db.js";
 import { getWatchersForNotification } from "./watcher.js";
+import { escapeHtml } from "./utils.js";
 import { createLogger } from "./logger.js";
 
 const log = createLogger("notifier");
@@ -53,12 +54,12 @@ async function getUserNotificationPrefs(userId: string): Promise<NotificationPre
 /**
  * Create or get a 1:1 DM room with a user for sending notifications.
  */
-async function getDmRoom(userId: string): Promise<string> {
+async function getDmRoom(userId: string, client?: MatrixClient): Promise<string> {
   // Check cache first
   const cached = dmRoomCache.get(userId);
   if (cached) return cached;
 
-  const bot = getBot();
+  const bot = client ?? getBot();
 
   try {
     // Try to find existing DM room
@@ -259,13 +260,4 @@ export async function handleMentionNotification(
   log.info(`Sent mention notifications to ${mentioned.size} users in room ${roomId}`);
 }
 
-/**
- * HTML-escape a string for safe inclusion in formatted_body.
- */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+

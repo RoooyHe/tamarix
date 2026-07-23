@@ -1,14 +1,21 @@
 /**
  * Tamarix AS -- Matrix bot REST client
+ *
+ * Provides a MatrixClient interface for dependency injection
+ * and a MatrixBotClient implementation that talks to the homeserver.
+ * Convenience wrappers (sendNotice, getStateEvent, etc.) use the
+ * global singleton for backward compatibility.
  */
 
 import { createLogger } from "./logger.js";
 
 const log = createLogger("bot");
 
-type MatrixContent = Record<string, unknown>;
+// ─── Types ───────────────────────────────────────────────────────
 
-interface CreateRoomOptions {
+export type MatrixContent = Record<string, unknown>;
+
+export interface CreateRoomOptions {
   invite?: string[];
   is_direct?: boolean;
   visibility?: "private" | "public";
@@ -17,13 +24,33 @@ interface CreateRoomOptions {
   topic?: string;
 }
 
+// ─── MatrixClient interface ──────────────────────────────────────
+
+/**
+ * Abstraction over the Matrix Client-Server API.
+ * Modules that need Matrix access should depend on this interface,
+ * not the concrete MatrixBotClient class.
+ */
+export interface MatrixClient {
+  sendMessage(roomId: string, content: MatrixContent): Promise<string>;
+  sendStateEvent(roomId: string, eventType: string, stateKey: string, content: MatrixContent): Promise<string>;
+  getRoomStateEvent<T = unknown>(roomId: string, eventType: string, stateKey?: string): Promise<T>;
+  getRoomState(roomId: string): Promise<Array<MatrixContent & { type?: string; state_key?: string }>>;
+  getJoinedRoomMembers(roomId: string): Promise<Record<string, MatrixContent>>;
+  getJoinedRooms(): string[];
+  joinRoom(roomId: string): Promise<string>;
+  createRoom(options: CreateRoomOptions): Promise<string>;
+}
+
+// ─── Implementation ──────────────────────────────────────────────
+
 interface BotConfig {
   homeserverUrl: string;
   asToken: string;
   userId: string;
 }
 
-export class MatrixBotClient {
+export class MatrixBotClient implements MatrixClient {
   private readonly homeserverUrl: string;
   private readonly asToken: string;
   private readonly userId: string;
@@ -141,23 +168,27 @@ export class MatrixBotClient {
   }
 }
 
-let botClient: MatrixBotClient | null = null;
+// ─── Global singleton (backward compatibility) ───────────────────
+
+let botClient: MatrixClient | null = null;
 
 export function createBot(config: BotConfig): MatrixBotClient {
   return new MatrixBotClient(config);
 }
 
-export function initBot(client: MatrixBotClient): void {
+export function initBot(client: MatrixClient): void {
   botClient = client;
   log.info("Bot client initialized");
 }
 
-export function getBot(): MatrixBotClient {
+export function getBot(): MatrixClient {
   if (!botClient) {
     throw new Error("Bot not initialized. Call initBot() first.");
   }
   return botClient;
 }
+
+// ─── Convenience wrappers (use global singleton) ─────────────────
 
 export async function sendNotice(roomId: string, body: string, htmlBody?: string): Promise<string> {
   const content: MatrixContent = {

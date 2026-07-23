@@ -10,7 +10,8 @@
  */
 
 import { createLogger } from "./logger.js";
-import { getBot } from "./bot.js";
+import { type MatrixClient, getBot } from "./bot.js";
+import { escapeHtml } from "./utils.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const log = createLogger("git-bridge");
@@ -56,7 +57,8 @@ async function notifyTaskRoom(
   commit: { id: string; message: string; author: string; url?: string },
   repo: string,
   branch: string,
-  provider: GitProvider
+  provider: GitProvider,
+  client?: MatrixClient
 ): Promise<void> {
   const shortId = commit.id.substring(0, 7);
   const firstLine = commit.message.split("\n")[0];
@@ -66,7 +68,7 @@ async function notifyTaskRoom(
   const htmlBody = `<p><strong>[${providerLabel}]</strong> <code>${repo}</code>@<code>${branch}</code>: ` +
     `<a href="${commit.url ?? "#"}">${shortId}</a> - ${escapeHtml(firstLine)} <em>(${escapeHtml(commit.author)})</em></p>`;
 
-  await getBot().sendMessage(roomId, {
+  await (client ?? getBot()).sendMessage(roomId, {
     msgtype: "m.notice",
     body,
     format: "org.matrix.custom.html",
@@ -83,7 +85,8 @@ async function notifyTaskRoom(
  */
 export async function handleGitPush(
   event: GitPushEvent,
-  resolveRoom: (ticketId: string) => string | null
+  resolveRoom: (ticketId: string) => string | null,
+  client?: MatrixClient
 ): Promise<void> {
   log.info(`Processing push event: ${event.repo}@${event.branch}, ${event.commits.length} commit(s)`);
 
@@ -101,7 +104,7 @@ export async function handleGitPush(
       }
 
       try {
-        await notifyTaskRoom(roomId, commit, event.repo, event.branch, event.provider);
+        await notifyTaskRoom(roomId, commit, event.repo, event.branch, event.provider, client);
         log.info(`Notified room ${roomId} about commit ${commit.id.substring(0, 7)}`);
       } catch (err) {
         log.error(`Failed to notify room ${roomId}: ${err}`);
@@ -174,14 +177,6 @@ export function verifyGitLabToken(token: string | null, secret: string): boolean
   const secretBuffer = Buffer.from(secret);
   if (tokenBuffer.length !== secretBuffer.length) return false;
   return timingSafeEqual(tokenBuffer, secretBuffer);
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 function getAuthorName(author: unknown): string {
