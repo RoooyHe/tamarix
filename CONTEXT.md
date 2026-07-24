@@ -42,6 +42,7 @@
 - **integrations** — third-party integration connections via AS API. Context-based, set in layout. Lives in `src/lib/stores/integrations.svelte.ts`.
 
 ### Collapsed stores (consumers use local state + repository directly)
+
 - ~~versions store~~ — was pure delegation to `getVersions`/`setVersion`. Consumers now manage local `$state` and call repository functions.
 - ~~worklogs store~~ — was pure delegation to `getWorklogs`/`addWorklog`/`removeWorklog`. Inlined into `WorklogPanel.svelte`.
 

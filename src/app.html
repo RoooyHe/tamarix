@@ -5,10 +5,15 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		<script>
-			(function(){
-				var t=localStorage.getItem("tamarix:theme");
-				if(t==="dark"||(t!=="light"&&(!t||t==="system")&&matchMedia("(prefers-color-scheme:dark)").matches)){
-					document.documentElement.classList.add("dark");
+			(function () {
+				var t = localStorage.getItem('tamarix:theme');
+				if (
+					t === 'dark' ||
+					(t !== 'light' &&
+						(!t || t === 'system') &&
+						matchMedia('(prefers-color-scheme:dark)').matches)
+				) {
+					document.documentElement.classList.add('dark');
 				}
 			})();
 		</script>

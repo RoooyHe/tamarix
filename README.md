@@ -41,18 +41,18 @@ Tamarix maps Matrix's decentralized Room/Space model onto task management. Every
 <details>
 <summary><strong>Custom State Events</strong> -- the <code>com.tamarix.*</code> namespace</summary>
 
-| Event Type | Purpose |
-|---|---|
-| `com.tamarix.task_status` | Status (todo / in_progress / review / done / closed) |
-| `com.tamarix.priority` | Priority (critical / high / medium / low) |
-| `com.tamarix.task_type` | Type (bug / feature / task / improvement / epic) |
-| `com.tamarix.due_date` | Due date |
-| `com.tamarix.estimate` | Time estimate / Story points |
-| `com.tamarix.tags` | Tags |
-| `com.tamarix.ticket_id` | Ticket ID (e.g. TAM-42) |
-| `com.tamarix.assignee` | Assignee |
-| `com.tamarix.relation` | Task relation (blocks / duplicates / subtask_of) |
-| `com.tamarix.task_archived` | Archive flag |
+| Event Type                  | Purpose                                              |
+| --------------------------- | ---------------------------------------------------- |
+| `com.tamarix.task_status`   | Status (todo / in_progress / review / done / closed) |
+| `com.tamarix.priority`      | Priority (critical / high / medium / low)            |
+| `com.tamarix.task_type`     | Type (bug / feature / task / improvement / epic)     |
+| `com.tamarix.due_date`      | Due date                                             |
+| `com.tamarix.estimate`      | Time estimate / Story points                         |
+| `com.tamarix.tags`          | Tags                                                 |
+| `com.tamarix.ticket_id`     | Ticket ID (e.g. TAM-42)                              |
+| `com.tamarix.assignee`      | Assignee                                             |
+| `com.tamarix.relation`      | Task relation (blocks / duplicates / subtask_of)     |
+| `com.tamarix.task_archived` | Archive flag                                         |
 
 </details>
 
@@ -100,13 +100,13 @@ src/
 
 ## Roadmap
 
-| Phase | Status | Highlights |
-|---|---|---|
-| P0 -- MVP | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | Login / Project list / Task CRUD / Detail / Comments |
-| P1 -- Board View | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | Kanban DnD / Command Palette / Filter & Sort / Data Table / Archive / Upload / Theme |
-| P2 -- Intelligence | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square) | i18n / Ticket ID / Workflow / Search / Change History / Relations / E2EE Infrastructure |
-| P3 -- Enterprise | ![Planned](https://img.shields.io/badge/status-planned-lightgrey?style=flat-square) | Charts / Reminder Bot / Git Bridge / Custom Fields |
-| P4 -- Advanced | ![In Progress](https://img.shields.io/badge/status-in--progress-yellow?style=flat-square) | Chart Reports / Custom Field Renderer / Approval / Sort Order / Keyboard Shortcuts / External Links |
+| Phase              | Status                                                                                    | Highlights                                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| P0 -- MVP          | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square)           | Login / Project list / Task CRUD / Detail / Comments                                                |
+| P1 -- Board View   | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square)           | Kanban DnD / Command Palette / Filter & Sort / Data Table / Archive / Upload / Theme                |
+| P2 -- Intelligence | ![Done](https://img.shields.io/badge/status-done-brightgreen?style=flat-square)           | i18n / Ticket ID / Workflow / Search / Change History / Relations / E2EE Infrastructure             |
+| P3 -- Enterprise   | ![Planned](https://img.shields.io/badge/status-planned-lightgrey?style=flat-square)       | Charts / Reminder Bot / Git Bridge / Custom Fields                                                  |
+| P4 -- Advanced     | ![In Progress](https://img.shields.io/badge/status-in--progress-yellow?style=flat-square) | Chart Reports / Custom Field Renderer / Approval / Sort Order / Keyboard Shortcuts / External Links |
 
 ## Contributing
 

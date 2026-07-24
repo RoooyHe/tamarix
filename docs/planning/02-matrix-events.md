@@ -4,29 +4,29 @@
 
 所有自定义事件使用 `com.tamarix.*` 命名空间：
 
-| Event Type | 用途 | 内容结构 | 权限控制 |
-|---|---|---|---|
-| `com.tamarix.task_status` | 任务状态 | `{ status: "todo" \| "in_progress" \| "review" \| "done" \| "closed" }` | power_level >= 50 |
-| `com.tamarix.priority` | 优先级 | `{ level: "critical" \| "high" \| "medium" \| "low" }` | power_level >= 50 |
-| `com.tamarix.due_date` | 截止日期 | `{ date: "2025-12-31T23:59:59Z" }` | power_level >= 50 |
-| `com.tamarix.task_type` | 任务类型 | `{ type: "bug" \| "feature" \| "task" \| "improvement" \| "epic" }` | power_level >= 100 |
-| `com.tamarix.estimate` | 估时/故事点 | `{ points: 5, unit: "story_points" \| "hours" \| "days" }` | power_level >= 50 |
-| `com.tamarix.tags` | 全局标签（Room 级） | `{ tags: ["frontend", "urgent"] }` | power_level >= 0 |
-| `com.tamarix.ticket_id` | 任务编号 | `{ id: "TAM-42" }` | power_level >= 100 |
-| `com.tamarix.relation` | 任务关联 | `{ rel_type: "blocks" \| "duplicates" \| "relates" \| "subtask_of", target_room: "!xxx:server" }` | power_level >= 50 |
-| `com.tamarix.sprint_meta` | Sprint 元数据 | `{ name: "Sprint 3", start: "2025-01-01", end: "2025-01-14" }` | power_level >= 100 |
-| `com.tamarix.assignee` | 指派人 | `{ user_id: "@alice:server" }` | power_level >= 50 |
-| `com.tamarix.task_archived` | 任务归档标记 | `{ archived: true, archived_by: "@alice:server", archived_at: "2025-07-15T10:30:00Z" }` | power_level >= 50 |
-| `com.tamarix.description` | 任务富文本描述（Markdown） | `{ body: "纯文本", formatted_body: "<h1>HTML</h1>", format: "org.matrix.custom.html" }` | power_level >= 0 |
-| `com.tamarix.worklog` | 工时记录（多实例 state_key） | `{ user_id: "@alice:server", hours: 2.5, note: "修复登录Bug", logged_at: "2025-08-01T10:30:00Z" }` | power_level >= 0 |
-| `com.tamarix.version` | 版本/发布（多实例 state_key，Space 级） | `{ name: "v1.2.0", description: "正式发布", release_date: "2025-09-01", status: "planned" \| "released" \| "archived" }` | power_level >= 100 |
-| `com.tamarix.task_version` | 任务关联版本 | `{ version_key: "v1.2.0" }` | power_level >= 50 |
-| `com.tamarix.watcher` | 任务关注者（多实例 state_key） | `{ user_id: "@bob:server" }` | power_level >= 0 |
-| `com.tamarix.task_template` | 任务模板（Space 级，多实例 state_key） | `{ name: "Bug修复模板", title_pattern: "[Bug] {{description}}", description: "## 复现步骤\n...\n## 期望行为\n...", status: "todo", priority: "high", type: "bug", tags: ["bug"] }` | power_level >= 100 |
-| `com.tamarix.notification_prefs` | 用户通知偏好 | `{ assign_notify: true, status_change_notify: true, due_remind: "1d", mention_notify: true, channels: ["matrix"] }` | power_level >= 0（仅自己的） |
-| `com.tamarix.approval` | 审批状态 | `{ status: "pending" \| "approved" \| "rejected", required_approvals: 2, current_approvals: 0 }` | power_level >= 50 |
-| `com.tamarix.custom_field` | 自定义字段定义（多实例 state_key=字段名） | `{ label: "客户", type: "text" \| "number" \| "select" \| "date", options?: string[], required: false }` | power_level >= 100 |
-| `com.tamarix.custom_field_value` | 自定义字段值（多实例 state_key=字段名） | `{ value: any }` | power_level >= 0 |
-| `com.tamarix.sort_order` | 同列内手动排序 | `{ order: 0 }` | power_level >= 50 |
-| `m.room.encryption` | 房间加密标记 | `{ algorithm: "m.megolm.v1.aes-sha2" }` | power_level >= 50（创建时设置） |
-| `com.tamarix.external_link` | 外部链接（多实例 state_key） | `{ url: "https://...", label: "设计稿" }` | power_level >= 0 |
+| Event Type                       | 用途                                      | 内容结构                                                                                                                                                                           | 权限控制                        |
+| -------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `com.tamarix.task_status`        | 任务状态                                  | `{ status: "todo" \| "in_progress" \| "review" \| "done" \| "closed" }`                                                                                                            | power_level >= 50               |
+| `com.tamarix.priority`           | 优先级                                    | `{ level: "critical" \| "high" \| "medium" \| "low" }`                                                                                                                             | power_level >= 50               |
+| `com.tamarix.due_date`           | 截止日期                                  | `{ date: "2025-12-31T23:59:59Z" }`                                                                                                                                                 | power_level >= 50               |
+| `com.tamarix.task_type`          | 任务类型                                  | `{ type: "bug" \| "feature" \| "task" \| "improvement" \| "epic" }`                                                                                                                | power_level >= 100              |
+| `com.tamarix.estimate`           | 估时/故事点                               | `{ points: 5, unit: "story_points" \| "hours" \| "days" }`                                                                                                                         | power_level >= 50               |
+| `com.tamarix.tags`               | 全局标签（Room 级）                       | `{ tags: ["frontend", "urgent"] }`                                                                                                                                                 | power_level >= 0                |
+| `com.tamarix.ticket_id`          | 任务编号                                  | `{ id: "TAM-42" }`                                                                                                                                                                 | power_level >= 100              |
+| `com.tamarix.relation`           | 任务关联                                  | `{ rel_type: "blocks" \| "duplicates" \| "relates" \| "subtask_of", target_room: "!xxx:server" }`                                                                                  | power_level >= 50               |
+| `com.tamarix.sprint_meta`        | Sprint 元数据                             | `{ name: "Sprint 3", start: "2025-01-01", end: "2025-01-14" }`                                                                                                                     | power_level >= 100              |
+| `com.tamarix.assignee`           | 指派人                                    | `{ user_id: "@alice:server" }`                                                                                                                                                     | power_level >= 50               |
+| `com.tamarix.task_archived`      | 任务归档标记                              | `{ archived: true, archived_by: "@alice:server", archived_at: "2025-07-15T10:30:00Z" }`                                                                                            | power_level >= 50               |
+| `com.tamarix.description`        | 任务富文本描述（Markdown）                | `{ body: "纯文本", formatted_body: "<h1>HTML</h1>", format: "org.matrix.custom.html" }`                                                                                            | power_level >= 0                |
+| `com.tamarix.worklog`            | 工时记录（多实例 state_key）              | `{ user_id: "@alice:server", hours: 2.5, note: "修复登录Bug", logged_at: "2025-08-01T10:30:00Z" }`                                                                                 | power_level >= 0                |
+| `com.tamarix.version`            | 版本/发布（多实例 state_key，Space 级）   | `{ name: "v1.2.0", description: "正式发布", release_date: "2025-09-01", status: "planned" \| "released" \| "archived" }`                                                           | power_level >= 100              |
+| `com.tamarix.task_version`       | 任务关联版本                              | `{ version_key: "v1.2.0" }`                                                                                                                                                        | power_level >= 50               |
+| `com.tamarix.watcher`            | 任务关注者（多实例 state_key）            | `{ user_id: "@bob:server" }`                                                                                                                                                       | power_level >= 0                |
+| `com.tamarix.task_template`      | 任务模板（Space 级，多实例 state_key）    | `{ name: "Bug修复模板", title_pattern: "[Bug] {{description}}", description: "## 复现步骤\n...\n## 期望行为\n...", status: "todo", priority: "high", type: "bug", tags: ["bug"] }` | power_level >= 100              |
+| `com.tamarix.notification_prefs` | 用户通知偏好                              | `{ assign_notify: true, status_change_notify: true, due_remind: "1d", mention_notify: true, channels: ["matrix"] }`                                                                | power_level >= 0（仅自己的）    |
+| `com.tamarix.approval`           | 审批状态                                  | `{ status: "pending" \| "approved" \| "rejected", required_approvals: 2, current_approvals: 0 }`                                                                                   | power_level >= 50               |
+| `com.tamarix.custom_field`       | 自定义字段定义（多实例 state_key=字段名） | `{ label: "客户", type: "text" \| "number" \| "select" \| "date", options?: string[], required: false }`                                                                           | power_level >= 100              |
+| `com.tamarix.custom_field_value` | 自定义字段值（多实例 state_key=字段名）   | `{ value: any }`                                                                                                                                                                   | power_level >= 0                |
+| `com.tamarix.sort_order`         | 同列内手动排序                            | `{ order: 0 }`                                                                                                                                                                     | power_level >= 50               |
+| `m.room.encryption`              | 房间加密标记                              | `{ algorithm: "m.megolm.v1.aes-sha2" }`                                                                                                                                            | power_level >= 50（创建时设置） |
+| `com.tamarix.external_link`      | 外部链接（多实例 state_key）              | `{ url: "https://...", label: "设计稿" }`                                                                                                                                          | power_level >= 0                |

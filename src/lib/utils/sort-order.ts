@@ -1,4 +1,4 @@
-import type { TaskStatus } from "$lib/matrix/task-types";
+import type { TaskStatus } from '$lib/matrix/types';
 
 /**
  * Sort order utility functions for manual column sorting.
@@ -14,32 +14,32 @@ import type { TaskStatus } from "$lib/matrix/task-types";
  *     moved card's sort_order.
  */
 
-const BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const BASE62_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 const BASE = BASE62_CHARS.length;
 
 /**
  * Encode a non-negative integer as a base-62 string of fixed length.
  */
 function toBase62(n: number, length: number): string {
-  let s = "";
-  for (let i = 0; i < length; i++) {
-    s = BASE62_CHARS[n % BASE] + s;
-    n = Math.floor(n / BASE);
-  }
-  return s;
+	let s = '';
+	for (let i = 0; i < length; i++) {
+		s = BASE62_CHARS[n % BASE] + s;
+		n = Math.floor(n / BASE);
+	}
+	return s;
 }
 
 /**
  * Decode a base-62 string to a non-negative integer.
  */
 function fromBase62(s: string): number {
-  let n = 0;
-  for (let i = 0; i < s.length; i++) {
-    const idx = BASE62_CHARS.indexOf(s[i]);
-    if (idx < 0) return 0;
-    n = n * BASE + idx;
-  }
-  return n;
+	let n = 0;
+	for (let i = 0; i < s.length; i++) {
+		const idx = BASE62_CHARS.indexOf(s[i]);
+		if (idx < 0) return 0;
+		n = n * BASE + idx;
+	}
+	return n;
 }
 
 /**
@@ -71,24 +71,21 @@ export const SORT_MAX = toBase62(Math.pow(BASE, KEY_LENGTH) - 1, KEY_LENGTH);
  *      fall back to using a longer key).
  *   4. Encode mid back to base-62.
  */
-export function generateSortBetween(
-  prev: string | null,
-  next: string | null
-): string {
-  const a = prev ? fromBase62(prev) : 0;
-  const b = next ? fromBase62(next) : Math.pow(BASE, KEY_LENGTH) - 1;
+export function generateSortBetween(prev: string | null, next: string | null): string {
+	const a = prev ? fromBase62(prev) : 0;
+	const b = next ? fromBase62(next) : Math.pow(BASE, KEY_LENGTH) - 1;
 
-  if (a + 1 >= b) {
-    // Space exhausted at current length -- extend by one char
-    // Mid-point between prev+0 and prev+BASE/2
-    const newPrev = a * BASE;
-    const newNext = a * BASE + Math.floor(BASE / 2);
-    const mid = Math.floor((newPrev + newNext) / 2);
-    return toBase62(mid, KEY_LENGTH + 1);
-  }
+	if (a + 1 >= b) {
+		// Space exhausted at current length -- extend by one char
+		// Mid-point between prev+0 and prev+BASE/2
+		const newPrev = a * BASE;
+		const newNext = a * BASE + Math.floor(BASE / 2);
+		const mid = Math.floor((newPrev + newNext) / 2);
+		return toBase62(mid, KEY_LENGTH + 1);
+	}
 
-  const mid = Math.floor((a + b) / 2);
-  return toBase62(mid, KEY_LENGTH);
+	const mid = Math.floor((a + b) / 2);
+	return toBase62(mid, KEY_LENGTH);
 }
 
 /**
@@ -96,14 +93,14 @@ export function generateSortBetween(
  * Tasks without sort_order are treated as having SORT_MAX (end of list).
  */
 export function sortByOrder<T extends { roomId: string; sortOrder?: string }>(
-  items: T[],
-  orderMap: Map<string, string>
+	items: T[],
+	orderMap: Map<string, string>
 ): T[] {
-  return [...items].sort((a, b) => {
-    const orderA = orderMap.get(a.roomId) ?? SORT_MAX;
-    const orderB = orderMap.get(b.roomId) ?? SORT_MAX;
-    return orderA.localeCompare(orderB);
-  });
+	return [...items].sort((a, b) => {
+		const orderA = orderMap.get(a.roomId) ?? SORT_MAX;
+		const orderB = orderMap.get(b.roomId) ?? SORT_MAX;
+		return orderA.localeCompare(orderB);
+	});
 }
 
 /**
@@ -116,11 +113,11 @@ export function sortByOrder<T extends { roomId: string; sortOrder?: string }>(
  * @returns The new sort_order string
  */
 export function computeSortAtPosition(
-  items: Array<{ roomId: string }>,
-  newIndex: number,
-  orderMap: Map<string, string>
+	items: Array<{ roomId: string }>,
+	newIndex: number,
+	orderMap: Map<string, string>
 ): string {
-  const prevKey = newIndex > 0 ? (orderMap.get(items[newIndex - 1].roomId) ?? null) : null;
-  const nextKey = newIndex < items.length ? (orderMap.get(items[newIndex].roomId) ?? null) : null;
-  return generateSortBetween(prevKey, nextKey);
+	const prevKey = newIndex > 0 ? (orderMap.get(items[newIndex - 1].roomId) ?? null) : null;
+	const nextKey = newIndex < items.length ? (orderMap.get(items[newIndex].roomId) ?? null) : null;
+	return generateSortBetween(prevKey, nextKey);
 }

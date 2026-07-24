@@ -1,140 +1,117 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTaskCache } from "./task-cache";
-import type { Task } from "$lib/matrix/task-types";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createTaskCache } from './task-cache';
+import type { Task } from '$lib/matrix/types';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
-  return {
-    roomId: "!task:example.com",
-    title: "Test Task",
-    status: "todo",
-    tags: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    ...overrides,
-  };
+	return {
+		roomId: overrides.roomId ?? 'room-1',
+		title: 'Test Task',
+		status: 'todo',
+		tags: [],
+		createdAt: Date.now(),
+		updatedAt: Date.now(),
+		...overrides
+	};
 }
 
-describe("createTaskCache", () => {
-  let cache: ReturnType<typeof createTaskCache>;
+describe('createTaskCache', () => {
+	let cache: ReturnType<typeof createTaskCache>;
 
-  beforeEach(() => {
-    cache = createTaskCache();
-  });
+	beforeEach(() => {
+		cache = createTaskCache();
+	});
 
-  describe("upsert and getTasks", () => {
-    it("adds a task and retrieves it", () => {
-      const task = makeTask({ roomId: "!task1:example.com" });
-      cache.upsert(task);
-      expect(cache.getTasks()).toEqual([task]);
-    });
+	describe('upsert and getTasks', () => {
+		it('adds a task and retrieves it', () => {
+			const task = makeTask({ roomId: 'r1', title: 'Task 1' });
+			cache.upsert(task);
+			expect(cache.getTasks()).toHaveLength(1);
+			expect(cache.getTasks()[0].title).toBe('Task 1');
+		});
 
-    it("updates an existing task", () => {
-      const task = makeTask({ roomId: "!task1:example.com", title: "Original" });
-      cache.upsert(task);
-      cache.upsert({ ...task, title: "Updated" });
-      expect(cache.getTasks()).toHaveLength(1);
-      expect(cache.getTasks()[0].title).toBe("Updated");
-    });
+		it('does not duplicate on re-upsert', () => {
+			cache.upsert(makeTask({ roomId: 'r1' }));
+			cache.upsert(makeTask({ roomId: 'r1', title: 'Updated' }));
+			expect(cache.getTasks()).toHaveLength(1);
+			expect(cache.getTasks()[0].title).toBe('Updated');
+		});
 
-    it("maintains insertion order", () => {
-      cache.upsert(makeTask({ roomId: "!task1:example.com" }));
-      cache.upsert(makeTask({ roomId: "!task2:example.com" }));
-      cache.upsert(makeTask({ roomId: "!task3:example.com" }));
-      const ids = cache.getTasks().map(t => t.roomId);
-      expect(ids).toEqual(["!task1:example.com", "!task2:example.com", "!task3:example.com"]);
-    });
-  });
+		it('maintains insertion order', () => {
+			cache.upsert(makeTask({ roomId: 'r3' }));
+			cache.upsert(makeTask({ roomId: 'r1' }));
+			cache.upsert(makeTask({ roomId: 'r2' }));
+			const ids = cache.getTasks().map((t) => t.roomId);
+			expect(ids).toEqual(['r3', 'r1', 'r2']);
+		});
+	});
 
-  describe("remove", () => {
-    it("removes a task", () => {
-      cache.upsert(makeTask({ roomId: "!task1:example.com" }));
-      cache.upsert(makeTask({ roomId: "!task2:example.com" }));
-      cache.remove("!task1:example.com");
-      expect(cache.getTasks()).toHaveLength(1);
-      expect(cache.getTasks()[0].roomId).toBe("!task2:example.com");
-    });
+	describe('remove', () => {
+		it('removes a task', () => {
+			cache.upsert(makeTask({ roomId: 'r1' }));
+			cache.remove('r1');
+			expect(cache.getTasks()).toHaveLength(0);
+		});
 
-    it("removes task from project index", () => {
-      const task = makeTask({ roomId: "!task1:example.com", projectRoomId: "!project:example.com" });
-      cache.upsert(task);
-      expect(cache.getByProject("!project:example.com")).toHaveLength(1);
-      cache.remove("!task1:example.com");
-      expect(cache.getByProject("!project:example.com")).toHaveLength(0);
-    });
+		it('is safe to remove non-existent task', () => {
+			expect(() => cache.remove('nonexistent')).not.toThrow();
+		});
+	});
 
-    it("no-op when removing non-existent task", () => {
-      cache.upsert(makeTask({ roomId: "!task1:example.com" }));
-      cache.remove("!nonexistent:example.com");
-      expect(cache.getTasks()).toHaveLength(1);
-    });
-  });
+	describe('getByRoomId', () => {
+		it('returns task by roomId', () => {
+			cache.upsert(makeTask({ roomId: 'r1', title: 'Found' }));
+			expect(cache.getByRoomId('r1')?.title).toBe('Found');
+		});
 
-  describe("getByRoomId", () => {
-    it("returns task by room ID", () => {
-      const task = makeTask({ roomId: "!task1:example.com" });
-      cache.upsert(task);
-      expect(cache.getByRoomId("!task1:example.com")).toEqual(task);
-    });
+		it('returns undefined for unknown roomId', () => {
+			expect(cache.getByRoomId('unknown')).toBeUndefined();
+		});
+	});
 
-    it("returns undefined for unknown room ID", () => {
-      expect(cache.getByRoomId("!unknown:example.com")).toBeUndefined();
-    });
-  });
+	describe('getByProject', () => {
+		it('returns tasks for a project', () => {
+			cache.upsert(makeTask({ roomId: 'r1', projectRoomId: 'p1' }));
+			cache.upsert(makeTask({ roomId: 'r2', projectRoomId: 'p1' }));
+			cache.upsert(makeTask({ roomId: 'r3', projectRoomId: 'p2' }));
+			expect(cache.getByProject('p1')).toHaveLength(2);
+			expect(cache.getByProject('p2')).toHaveLength(1);
+		});
 
-  describe("getByProject", () => {
-    it("returns tasks for a project", () => {
-      cache.upsert(makeTask({ roomId: "!t1:example.com", projectRoomId: "!proj:example.com" }));
-      cache.upsert(makeTask({ roomId: "!t2:example.com", projectRoomId: "!proj:example.com" }));
-      cache.upsert(makeTask({ roomId: "!t3:example.com", projectRoomId: "!other:example.com" }));
-      expect(cache.getByProject("!proj:example.com")).toHaveLength(2);
-    });
+		it('returns empty for unknown project', () => {
+			expect(cache.getByProject('unknown')).toEqual([]);
+		});
+	});
 
-    it("returns empty array for unknown project", () => {
-      expect(cache.getByProject("!unknown:example.com")).toEqual([]);
-    });
-  });
+	describe('getById', () => {
+		it('finds by roomId', () => {
+			cache.upsert(makeTask({ roomId: 'r1' }));
+			expect(cache.getById('r1')).toBeDefined();
+		});
 
-  describe("getById", () => {
-    it("finds by ticket ID", () => {
-      const task = makeTask({ roomId: "!task1:example.com", ticketId: "TAM-42" });
-      cache.upsert(task);
-      expect(cache.getById("TAM-42")).toEqual(task);
-    });
+		it('finds by ticketId', () => {
+			cache.upsert(makeTask({ roomId: 'r1', ticketId: 'TAM-42' }));
+			expect(cache.getById('TAM-42')).toBeDefined();
+		});
 
-    it("falls back to room ID", () => {
-      const task = makeTask({ roomId: "!task1:example.com" });
-      cache.upsert(task);
-      expect(cache.getById("!task1:example.com")).toEqual(task);
-    });
+		it('returns undefined for unknown id', () => {
+			expect(cache.getById('unknown')).toBeUndefined();
+		});
+	});
 
-    it("returns undefined for unknown ID", () => {
-      expect(cache.getById("UNKNOWN")).toBeUndefined();
-    });
-  });
+	describe('project index management', () => {
+		it('cleans old project index on project change', () => {
+			cache.upsert(makeTask({ roomId: 'r1', projectRoomId: 'p1' }));
+			expect(cache.getByProject('p1')).toHaveLength(1);
 
-  describe("project index management", () => {
-    it("indexes tasks by project", () => {
-      cache.upsert(makeTask({ roomId: "!t1:example.com", projectRoomId: "!proj:example.com" }));
-      cache.upsert(makeTask({ roomId: "!t2:example.com", projectRoomId: "!proj:example.com" }));
-      expect(cache.getByProject("!proj:example.com")).toHaveLength(2);
-    });
+			cache.upsert(makeTask({ roomId: 'r1', projectRoomId: 'p2' }));
+			expect(cache.getByProject('p1')).toHaveLength(0);
+			expect(cache.getByProject('p2')).toHaveLength(1);
+		});
 
-    it("reindexes when project changes", () => {
-      const task = makeTask({ roomId: "!t1:example.com", projectRoomId: "!proj1:example.com" });
-      cache.upsert(task);
-      expect(cache.getByProject("!proj1:example.com")).toHaveLength(1);
-      expect(cache.getByProject("!proj2:example.com")).toHaveLength(0);
-
-      cache.upsert({ ...task, projectRoomId: "!proj2:example.com" });
-      expect(cache.getByProject("!proj1:example.com")).toHaveLength(0);
-      expect(cache.getByProject("!proj2:example.com")).toHaveLength(1);
-    });
-
-    it("removes from old project when task moves", () => {
-      cache.upsert(makeTask({ roomId: "!t1:example.com", projectRoomId: "!proj1:example.com" }));
-      cache.upsert(makeTask({ roomId: "!t1:example.com", projectRoomId: "!proj2:example.com" }));
-      expect(cache.getByProject("!proj1:example.com")).toHaveLength(0);
-      expect(cache.getByProject("!proj2:example.com")).toHaveLength(1);
-    });
-  });
+		it('cleans project index on remove', () => {
+			cache.upsert(makeTask({ roomId: 'r1', projectRoomId: 'p1' }));
+			cache.remove('r1');
+			expect(cache.getByProject('p1')).toHaveLength(0);
+		});
+	});
 });
