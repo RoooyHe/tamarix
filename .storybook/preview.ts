@@ -4,17 +4,22 @@ import type { Preview } from '@storybook/svelte';
 const preview: Preview = {
 	parameters: {
 		backgrounds: {
-			default: 'dark',
-			values: [
-				{ name: 'dark', value: '#000000' },
-				{ name: 'light', value: '#ffffff' }
-			]
+			options: {
+				dark: { name: 'dark', value: '#000000' },
+				light: { name: 'light', value: '#ffffff' }
+			}
 		},
 		controls: {
 			matchers: {
 				color: /(background|color)$/i,
 				date: /Date$/i
 			}
+		}
+	},
+
+	initialGlobals: {
+		backgrounds: {
+			value: 'dark'
 		}
 	}
 };
