@@ -10,7 +10,7 @@
 
 import { getBot, getStateEvent } from "./bot.js";
 import { getDb } from "./db.js";
-import { setTaskEncrypted } from "./indexer.js";
+import { setTaskEncrypted } from "./task-index.js";
 import { createLogger } from "./logger.js";
 
 const log = createLogger("e2ee-guard");

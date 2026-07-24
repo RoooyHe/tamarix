@@ -8,7 +8,7 @@
  * Format: TAM-{n} -- identical to the frontend's generateNextTicketId().
  */
 
-import { getBot, sendStateEvent, getStateEvent } from "./bot.js";
+import { type MatrixClient, getBot, sendStateEvent, getStateEvent } from "./bot.js";
 import { getDb } from "./db.js";
 import { createLogger } from "./logger.js";
 
@@ -20,7 +20,7 @@ const TICKET_ID_REGEX = /^TAM-(\d+)$/;
  * Handle a newly created room: check if ticket_id already exists,
  * and if not, generate and inject the next one for the project.
  */
-export async function handleRoomCreated(roomId: string, projectId: string): Promise<void> {
+export async function handleRoomCreated(roomId: string, projectId: string, client?: MatrixClient): Promise<void> {
   const db = getDb();
 
   // Check if ticket_id already exists (frontend may have injected it)
@@ -44,7 +44,7 @@ export async function handleRoomCreated(roomId: string, projectId: string): Prom
   }
 
   // Also check rooms not yet in the index by scanning the bot's known rooms
-  const bot = getBot();
+  const bot = client ?? getBot();
   try {
     const roomState = await bot.getRoomState(roomId);
     const parentEvent = roomState.find(

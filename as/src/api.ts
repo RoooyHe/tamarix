@@ -3,6 +3,8 @@
  *
  * Provides REST endpoints for search, task listing,
  * project statistics, E2EE status, and health checks.
+ *
+ * Routes are defined as a table for readability and testability.
  */
 
 import { getDb } from "./db.js";
@@ -30,11 +32,10 @@ export function initApi(token: string): void {
   apiToken = token;
 }
 
-/**
- * Verify API authentication.
- */
+// ─── Auth ────────────────────────────────────────────────────────
+
 function verifyAuth(request: Request): boolean {
-  if (!apiToken) return true; // No token configured = no auth required
+  if (!apiToken) return true;
 
   const auth = request.headers.get("Authorization");
   if (!auth) return false;
@@ -45,53 +46,75 @@ function verifyAuth(request: Request): boolean {
   return parts[1] === apiToken;
 }
 
-/**
- * Handle an incoming HTTP request.
- * Routes are matched against the URL pathname.
- */
+// ─── Route table ─────────────────────────────────────────────────
+
+type RouteHandler = (request: Request, url: URL, params: Record<string, string>) => Promise<Response> | Response;
+
+interface Route {
+  method: string;
+  pattern: RegExp;
+  paramNames: string[];
+  handler: RouteHandler;
+  auth: boolean;
+}
+
+function route(method: string, path: string, handler: RouteHandler, auth = true): Route {
+  const paramNames: string[] = [];
+  const regex = path.replace(/:(\w+)/g, (_match, name) => {
+    paramNames.push(name);
+    return "([^/]+)";
+  });
+  return { method, pattern: new RegExp(`^${regex}$`), paramNames, handler, auth };
+}
+
+const routes: Route[] = [
+  // Health — no auth
+  route("GET", "/api/health", () => handleHealth(), false),
+
+  // Search
+  route("GET", "/api/search", (_req, url) => handleSearch(url)),
+
+  // Tasks
+  route("GET", "/api/tasks", (_req, url) => handleTasks(url)),
+
+  // Stats
+  route("GET", "/api/stats", (_req, url) => handleStats(url)),
+
+  // E2EE status
+  route("GET", "/api/rooms/:roomId/e2ee-status", (_req, _url, p) => handleE2eeStatus(p.roomId)),
+
+  // Git config
+  route("GET", "/api/git/config/:projectId", (_req, _url, p) => handleGitConfig(p.projectId)),
+
+  // Git webhook
+  route("POST", "/api/git/webhook", (req, url) => handleGitWebhook(req, url)),
+];
+
+// ─── Router ──────────────────────────────────────────────────────
+
 export async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
 
   try {
-    // Health check - no auth required
-    if (path === "/api/health") {
-      return handleHealth();
-    }
+    for (const r of routes) {
+      if (request.method !== r.method) continue;
 
-    // All other endpoints require auth
-    if (!verifyAuth(request)) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+      const match = path.match(r.pattern);
+      if (!match) continue;
 
-    // Search
-    if (path === "/api/search" && request.method === "GET") {
-      return handleSearch(url);
-    }
+      // Build params object
+      const params: Record<string, string> = {};
+      for (let i = 0; i < r.paramNames.length; i++) {
+        params[r.paramNames[i]] = decodeURIComponent(match[i + 1]);
+      }
 
-    // Task list
-    if (path === "/api/tasks" && request.method === "GET") {
-      return handleTasks(url);
-    }
+      // Auth check (health endpoint skips auth)
+      if (r.auth && !verifyAuth(request)) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+      }
 
-    // Stats
-    if (path === "/api/stats" && request.method === "GET") {
-      return handleStats(url);
-    }
-
-    // E2EE status
-    if (path.startsWith("/api/rooms/") && path.endsWith("/e2ee-status") && request.method === "GET") {
-      const roomId = decodeURIComponent(path.slice("/api/rooms/".length, -"/e2ee-status".length));
-      return handleE2eeStatus(roomId);
-    }
-
-    if (path.startsWith("/api/git/config/") && request.method === "GET") {
-      const projectId = decodeURIComponent(path.slice("/api/git/config/".length));
-      return await handleGitConfig(projectId);
-    }
-
-    if (path === "/api/git/webhook" && request.method === "POST") {
-      return await handleGitWebhook(request, url);
+      return await r.handler(request, url, params);
     }
 
     return Response.json({ error: "Not found" }, { status: 404 });
@@ -101,9 +124,8 @@ export async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-/**
- * GET /api/health
- */
+// ─── Handlers ────────────────────────────────────────────────────
+
 function handleHealth(): Response {
   const db = getDb();
   let dbOk = false;
@@ -122,9 +144,6 @@ function handleHealth(): Response {
   });
 }
 
-/**
- * GET /api/search?q={query}&project={roomId}&status={status}&assignee={userId}&limit={n}
- */
 function handleSearch(url: URL): Response {
   const query = url.searchParams.get("q");
   if (!query) {
@@ -140,9 +159,6 @@ function handleSearch(url: URL): Response {
   return Response.json({ results, count: results.length });
 }
 
-/**
- * GET /api/tasks?project={roomId}&status={status}&page={n}&limit={n}
- */
 function handleTasks(url: URL): Response {
   const project = url.searchParams.get("project");
   if (!project) {
@@ -157,9 +173,6 @@ function handleTasks(url: URL): Response {
   return Response.json({ results, page, limit });
 }
 
-/**
- * GET /api/stats?project={roomId}
- */
 function handleStats(url: URL): Response {
   const project = url.searchParams.get("project");
   if (!project) {
@@ -170,9 +183,6 @@ function handleStats(url: URL): Response {
   return Response.json(stats);
 }
 
-/**
- * GET /api/rooms/{roomId}/e2ee-status
- */
 async function handleE2eeStatus(roomId: string): Promise<Response> {
   const status = await getE2eeStatus(roomId);
   return Response.json(status);
