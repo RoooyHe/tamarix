@@ -15,10 +15,13 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"storybook": "storybook dev -p 6006",
+		"build-storybook": "storybook build"
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.12.0",
+		"@storybook/sveltekit": "^10.5.3",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.57.0",
